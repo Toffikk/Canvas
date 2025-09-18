@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/entity/animal/HappyGhast.java
 +++ b/net/minecraft/world/entity/animal/HappyGhast.java
-@@ -546,7 +_,7 @@
+@@ -543,7 +_,7 @@
              boundingBox.maxZ + 1.0
          );
  

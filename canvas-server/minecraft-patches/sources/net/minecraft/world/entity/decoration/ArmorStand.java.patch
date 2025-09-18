@@ -24,7 +24,7 @@
              // Paper end
              return false;
          } else if (damageSource.is(DamageTypeTags.IGNITES_ARMOR_STANDS)) {
-@@ -449,7 +_,14 @@
+@@ -446,7 +_,14 @@
          if (health <= 0.5F) {
              // Paper start - avoid duplicate event call
              org.bukkit.event.entity.EntityDeathEvent event = this.brokenByAnything(level, damageSource);

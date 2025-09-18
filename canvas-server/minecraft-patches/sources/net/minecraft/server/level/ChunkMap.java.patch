@@ -9,7 +9,7 @@
                  this.ticketStorage.getTicketDebugString(longKey, true),
                  this.distanceManager.getChunkLevel(longKey, true),
                  optional1.<Integer>map(chunk -> chunk.getBlockTicks().count()).orElse(0),
-@@ -1296,7 +_,7 @@
+@@ -1293,7 +_,7 @@
                  }
                  // Folia end - region threading
                  // CraftBukkit start - respect vanish API

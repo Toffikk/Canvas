@@ -24,7 +24,7 @@
      }
  
      public void addEntity(CompoundTag tag) {
-@@ -307,7 +_,7 @@
+@@ -303,7 +_,7 @@
  
      @Override
      public void removeBlockEntity(BlockPos pos) {

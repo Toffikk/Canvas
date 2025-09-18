@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/level/block/SpreadingSnowyDirtBlock.java
 +++ b/net/minecraft/world/level/block/SpreadingSnowyDirtBlock.java
-@@ -69,7 +_,7 @@
+@@ -66,7 +_,7 @@
              // CraftBukkit end
              level.setBlockAndUpdate(pos, Blocks.DIRT.defaultBlockState());
          } else {

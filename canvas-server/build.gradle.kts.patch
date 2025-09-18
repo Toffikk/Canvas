@@ -9,11 +9,12 @@
      id("io.papermc.fill.gradle") version "1.0.7"
  }
  
-@@ -26,6 +_,18 @@
+@@ -26,6 +_,19 @@
      minecraftVersion = providers.gradleProperty("mcVersion")
      gitFilePatches = false
  
 +    val canvas = forks.register("canvas") {
++        additionalMappings("io.papermc.parchment.data:parchment-25w21a:2025.05.28")
 +        upstream.patchDir("paperServer") {
 +            upstreamPath = "paper-server"
 +            excludes = setOf("src/minecraft", "patches", "build.gradle.kts")

@@ -62,7 +62,7 @@
          if (palette == null) {
              return this.readPaletteSlow(data, paletteIdx);
          }
-@@ -258,7 +_,7 @@
+@@ -252,7 +_,7 @@
  
      public T get(int index) { // Paper - public
          // Paper start - optimise palette reads
@@ -71,7 +71,7 @@
          return this.readPalette(data, data.storage.get(index));
          // Paper end - optimise palette reads
      }
-@@ -349,28 +_,54 @@
+@@ -343,28 +_,54 @@
      public synchronized PalettedContainerRO.PackedData<T> pack(IdMap<T> registry, PalettedContainer.Strategy strategy) { // Paper - synchronize
          this.acquire();
  
@@ -143,7 +143,7 @@
      }
  
      private static <T> void swapPalette(int[] bits, IntUnaryOperator operator) {
-@@ -414,13 +_,33 @@
+@@ -408,13 +_,33 @@
       */
      @Override
      public void count(PalettedContainer.CountConsumer<T> countConsumer) {

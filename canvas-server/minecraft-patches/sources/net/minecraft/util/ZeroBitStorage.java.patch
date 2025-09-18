@@ -1,6 +1,6 @@
 --- a/net/minecraft/util/ZeroBitStorage.java
 +++ b/net/minecraft/util/ZeroBitStorage.java
-@@ -86,4 +_,6 @@
+@@ -80,4 +_,6 @@
          return ret;
      }
      // Paper end - block counting
