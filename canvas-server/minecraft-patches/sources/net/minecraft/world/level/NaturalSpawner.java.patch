@@ -206,13 +206,13 @@
      }
  
      private static WeightedList<MobSpawnSettings.SpawnerData> mobsAt(
--        ServerLevel level, StructureManager structureManager, ChunkGenerator generator, MobCategory cetagory, BlockPos pos, @Nullable Holder<Biome> biome
+-        ServerLevel level, StructureManager structureManager, ChunkGenerator generator, MobCategory category, BlockPos pos, @Nullable Holder<Biome> biome
 +        ServerLevel level, StructureManager structureManager, ChunkGenerator generator, MobCategory cetagory, BlockPos pos, @Nullable Holder<Biome> biome, LevelChunk chunk // Canvas - optimize natural spawning
      ) {
--        return isInNetherFortressBounds(pos, level, cetagory, structureManager)
+-        return isInNetherFortressBounds(pos, level, category, structureManager)
 +        return isInNetherFortressBounds(pos, level, cetagory, structureManager, chunk) // Canvas - optimize natural spawning
              ? NetherFortressStructure.FORTRESS_ENEMIES
--            : generator.getMobsAt(biome != null ? biome : level.getBiome(pos), structureManager, cetagory, pos);
+-            : generator.getMobsAt(biome != null ? biome : level.getBiome(pos), structureManager, category, pos);
 +            : generator.getMobsAt(biome != null ? biome : chunk.getNoiseBiome(pos.getX(), pos.getY(), pos.getZ()), structureManager, cetagory, pos, chunk.getAllReferences()); // Canvas - optimize natural spawning
      }
  

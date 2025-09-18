@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/entity/animal/Dolphin.java
 +++ b/net/minecraft/world/entity/animal/Dolphin.java
-@@ -386,6 +_,10 @@
+@@ -389,6 +_,10 @@
      static class DolphinSwimToTreasureGoal extends Goal {
          private final Dolphin dolphin;
          private boolean stuck;
@@ -11,7 +11,7 @@
  
          DolphinSwimToTreasureGoal(Dolphin dolphin) {
              this.dolphin = dolphin;
-@@ -404,6 +_,11 @@
+@@ -407,6 +_,11 @@
  
          @Override
          public boolean canContinueToUse() {
@@ -23,7 +23,7 @@
              BlockPos blockPos = this.dolphin.treasurePos;
              return blockPos != null
                  && !BlockPos.containing(blockPos.getX(), this.dolphin.getY(), blockPos.getZ()).closerToCenterThan(this.dolphin.position(), 4.0)
-@@ -418,6 +_,23 @@
+@@ -421,6 +_,23 @@
                  this.stuck = false;
                  this.dolphin.getNavigation().stop();
                  BlockPos blockPos = this.dolphin.blockPosition();
@@ -47,7 +47,7 @@
                  BlockPos blockPos1 = serverLevel.findNearestMapStructure(StructureTags.DOLPHIN_LOCATED, blockPos, 50, false);
                  if (blockPos1 != null) {
                      this.dolphin.treasurePos = blockPos1;
-@@ -430,6 +_,12 @@
+@@ -433,6 +_,12 @@
  
          @Override
          public void stop() {
@@ -60,7 +60,7 @@
              BlockPos blockPos = this.dolphin.treasurePos;
              if (blockPos == null
                  || BlockPos.containing(blockPos.getX(), this.dolphin.getY(), blockPos.getZ()).closerToCenterThan(this.dolphin.position(), 4.0)
-@@ -440,6 +_,11 @@
+@@ -443,6 +_,11 @@
  
          @Override
          public void tick() {

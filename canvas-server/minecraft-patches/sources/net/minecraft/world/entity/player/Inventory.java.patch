@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/entity/player/Inventory.java
 +++ b/net/minecraft/world/entity/player/Inventory.java
-@@ -456,13 +_,15 @@
+@@ -474,13 +_,15 @@
              }
          }
  
@@ -16,8 +16,8 @@
 +        // Canvas end - optimized iterators
      }
  
-     @Override
-@@ -515,17 +_,20 @@
+     /**
+@@ -539,17 +_,20 @@
  
      @Override
      public boolean isEmpty() {
@@ -40,9 +40,9 @@
  
          return true;
      }
-@@ -572,31 +_,58 @@
-     }
- 
+@@ -605,31 +_,58 @@
+      * Returns {@code true} if the specified {@link net.minecraft.world.item.ItemStack} exists in the inventory.
+      */
      public boolean contains(ItemStack stack) {
 -        for (ItemStack itemStack : this) {
 -            if (!itemStack.isEmpty() && ItemStack.isSameItemSameComponents(itemStack, stack)) {
@@ -114,7 +114,7 @@
  
          return false;
      }
-@@ -616,9 +_,12 @@
+@@ -652,9 +_,12 @@
      }
  
      public void fillStackedContents(StackedItemContents contents) {
@@ -127,4 +127,4 @@
 +        // Canvas end - optimized iterators
      }
  
-     public ItemStack removeFromSelected(boolean removeStack) {
+     /**

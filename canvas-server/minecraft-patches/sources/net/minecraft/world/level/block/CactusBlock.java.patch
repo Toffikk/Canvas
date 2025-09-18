@@ -1,7 +1,7 @@
 --- a/net/minecraft/world/level/block/CactusBlock.java
 +++ b/net/minecraft/world/level/block/CactusBlock.java
-@@ -52,25 +_,46 @@
- 
+@@ -55,25 +_,46 @@
+      */
      @Override
      protected void randomTick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
 -        BlockPos blockPos = pos.above();
@@ -52,7 +52,7 @@
                      return;
                  }
                  // Paper end
-@@ -115,6 +_,11 @@
+@@ -118,6 +_,11 @@
  
      @Override
      protected boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {

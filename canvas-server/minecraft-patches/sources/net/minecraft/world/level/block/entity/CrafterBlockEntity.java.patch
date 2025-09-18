@@ -55,7 +55,7 @@
      protected final ContainerData containerData = new ContainerData() {
          private final int[] slotStates = new int[9];
          private int triggered = 0;
-@@ -169,6 +_,11 @@
+@@ -172,6 +_,11 @@
              }
          });
          this.containerData.set(9, input.getIntOr("triggered", 0));
@@ -67,7 +67,7 @@
      }
  
      @Override
-@@ -278,6 +_,11 @@
+@@ -284,6 +_,11 @@
                  level.setBlock(pos, state.setValue(CrafterBlock.CRAFTING, false), 3);
              }
          }
