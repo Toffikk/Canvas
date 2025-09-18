@@ -127,4 +127,4 @@
 +    // Canvas end - optimize getBiome
  
      public interface NoiseBiomeSource {
-         Holder<Biome> getNoiseBiome(int x, int y, int z);
+         /**
