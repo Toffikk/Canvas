@@ -173,7 +173,7 @@
 +        // Canvas end - optimize block entity fetching
      }
  
-     private void replaceMissingSections(Registry<Biome> sections, LevelChunkSection[] sections) { // Paper - Anti-Xray - make it a non-static method
+     private void replaceMissingSections(Registry<Biome> biomeRegistry, LevelChunkSection[] sections) { // Paper - Anti-Xray - make it a non-static method
 @@ -229,7 +_,18 @@
  
      public Set<BlockPos> getBlockEntitiesPos() {

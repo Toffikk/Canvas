@@ -376,7 +376,7 @@
 @@ -5587,9 +_,7 @@
  
      // Paper start - optimise collisions
-     public boolean updateFluidHeightAndDoFluidPushing(final TagKey<Fluid> fluidTag, final double motionScale) {
+     public boolean updateFluidHeightAndDoFluidPushing(final TagKey<Fluid> fluid, final double flowScale) {
 -        if (this.touchingUnloadedChunk()) {
 -            return false;
 -        }
@@ -416,7 +416,7 @@
              }
          }
  
--        this.fluidHeight.put(fluidTag, maxHeightDiff);
+-        this.fluidHeight.put(fluid, maxHeightDiff);
 +        this.fluidHeightArray[heightIndex] = maxHeightDiff; // Canvas - optimize fluid height
  
          if (pushVector.lengthSqr() == 0.0) {
