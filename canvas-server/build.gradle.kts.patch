@@ -9,7 +9,15 @@
      id("io.papermc.fill.gradle") version "1.0.7"
  }
  
-@@ -26,6 +_,19 @@
+@@ -22,10 +_,27 @@
+     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+ }
+ 
++repositories {
++    mavenLocal()
++}
++
+ paperweight {
      minecraftVersion = providers.gradleProperty("mcVersion")
      gitFilePatches = false
  

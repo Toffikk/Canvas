@@ -1,5 +1,15 @@
 --- a/paper-api/build.gradle.kts
 +++ b/paper-api/build.gradle.kts
+@@ -38,6 +_,9 @@
+         return listOf("-javaagent:" + fileCollection.files.single().absolutePath)
+     }
+ }
++repositories {
++    mavenLocal()
++}
+ 
+ dependencies {
+     // api dependencies are listed transitively to API consumers
 @@ -90,16 +_,34 @@
      testRuntimeOnly("org.junit.platform:junit-platform-launcher")
  }
