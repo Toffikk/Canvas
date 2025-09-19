@@ -10,6 +10,10 @@ plugins {
 
 val paperMavenPublicUrl = "https://repo.papermc.io/repository/maven-public/"
 
+repositories {
+    mavenLocal()
+}
+
 paperweight {
     upstreams.paper {
         ref = providers.gradleProperty("paperCommit")
