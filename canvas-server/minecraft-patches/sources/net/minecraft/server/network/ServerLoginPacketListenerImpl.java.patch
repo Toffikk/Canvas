@@ -1,6 +1,6 @@
 --- a/net/minecraft/server/network/ServerLoginPacketListenerImpl.java
 +++ b/net/minecraft/server/network/ServerLoginPacketListenerImpl.java
-@@ -103,7 +_,7 @@
+@@ -100,7 +_,7 @@
              if (this.server.getPlayerList().pushPendingJoin(name, uniqueId, this.connection)) {
              // Folia end - region threading - rewrite login process
              this.verifyLoginAndFinishConnectionSetup(Objects.requireNonNull(this.authenticatedProfile));
@@ -9,7 +9,7 @@
          }
  
          if (this.state == ServerLoginPacketListenerImpl.State.WAITING_FOR_DUPE_DISCONNECT
-@@ -426,11 +_,32 @@
+@@ -423,11 +_,32 @@
          this.disconnect(ServerCommonPacketListenerImpl.DISCONNECT_UNEXPECTED_QUERY);
      }
  
