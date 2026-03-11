@@ -5,7 +5,7 @@ import io.papermc.paperweight.tasks.RebuildBaseGitPatches
 
 plugins {
     java
-    id("io.canvasmc.weaver.patcher") version "2.3.12"
+    id("io.canvasmc.weaver.patcher") version "2.4.0-remap-SNAPSHOT"
     id("xyz.jpenilla.resource-factory-paper-convention") version "1.3.1" apply false
 }
 
