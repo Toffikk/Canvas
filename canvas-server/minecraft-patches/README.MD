@@ -22,7 +22,7 @@ This repo contains a mappings file (mojang+parchment -> mojang unobf) that will 
 
 Should you wish to remap to/from different mappings, place the mappings file, that should be used while remapping under `build-data` under the name of `remap-mappings.tiny`
 
-> [!INFO]
+> [!TIP]
 > The directories below, such as 0001,0002 etc, refer to subdirectories under the `unmapped` directory.
 
 
