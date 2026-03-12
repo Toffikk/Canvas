@@ -75,7 +75,8 @@ issue and restart paperweight to pick up from where it left off, explained below
 
 ### Fixing patch application issues
 
-It is likely that patch remapping will succeed first try. 
+Patch remapping will usually succeed first try, but depending on the mappings you use it can be more prone to failure.
+
 Should the patch application fail, it is caused by your patches failing one way or another due
 to minor differences in tooling, setup, etc. Again, it is your responsibility to handle patch application issues as they
 come up just like any other upstream update.
