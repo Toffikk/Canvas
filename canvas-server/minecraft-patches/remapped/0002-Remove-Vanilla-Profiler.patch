@@ -1255,7 +1255,7 @@ index c47830ba2d8c8201c269783016c6a62e1ee3c8e9..280f062e9853a326e2189a5f4b3661be
  
      protected abstract T prepare(ResourceManager resourceManager, ProfilerFiller manager);
 diff --git a/net/minecraft/world/entity/Entity.java b/net/minecraft/world/entity/Entity.java
-index 698633a737452035749d09249bb851e3bc2f8ed2..7296929cf6929559d292155862ef9c13a5be5ba2 100644
+index 9859f096bece6c16f332adcfa1f79bd55b66776d..dfb345562db50654244744403dafb30e4d4022ee 100644
 --- a/net/minecraft/world/entity/Entity.java
 +++ b/net/minecraft/world/entity/Entity.java
 @@ -83,8 +83,6 @@ import net.minecraft.util.Util;
@@ -1343,17 +1343,17 @@ index 698633a737452035749d09249bb851e3bc2f8ed2..7296929cf6929559d292155862ef9c13
                      // Folia end - region threading
                  } else if (this.portalProcess.hasExpired()) {
 @@ -4876,15 +4860,12 @@ public abstract class Entity implements SyncedDataHolder, DebugValueSource, Name
-             entity.teleport(this.calculatePassengerTransition(teleportTransition, entity));
+             entity.teleport(this.calculatePassengerTransition(level, entity));
          }
  
 -        ProfilerFiller profilerFiller = Profiler.get();
 -        profilerFiller.push("teleportSameDimension");
-         this.teleportSetPosition(PositionMoveRotation.of(teleportTransition), teleportTransition.relatives());
-         if (!teleportTransition.asPassenger()) {
-             this.sendTeleportTransitionToRidingPlayers(teleportTransition);
+         this.teleportSetPosition(PositionMoveRotation.of(level), level.relatives());
+         if (!level.asPassenger()) {
+             this.sendTeleportTransitionToRidingPlayers(level);
          }
  
-         teleportTransition.postTeleportTransition().onTransition(this);
+         level.postTeleportTransition().onTransition(this);
 -        profilerFiller.pop();
          return this;
      }
@@ -1364,16 +1364,16 @@ index 698633a737452035749d09249bb851e3bc2f8ed2..7296929cf6929559d292155862ef9c13
  
 -        ProfilerFiller profilerFiller = Profiler.get();
 -        profilerFiller.push("teleportCrossDimension");
-         Entity entityx = this.getType().create(newLevel, EntitySpawnReason.DIMENSION_TRAVEL);
+         Entity entityx = this.getType().create(oldLevel, EntitySpawnReason.DIMENSION_TRAVEL);
          if (entityx == null) {
 -            profilerFiller.pop();
              return null;
          } else {
              // Paper start - Fix item duplication and teleport issues
 @@ -4924,7 +4902,6 @@ public abstract class Entity implements SyncedDataHolder, DebugValueSource, Name
-             newLevel.resetEmptyTime();
-             teleportTransition.postTeleportTransition().onTransition(entityx);
-             this.teleportSpectators(teleportTransition, oldLevel);
+             oldLevel.resetEmptyTime();
+             newLevel.postTeleportTransition().onTransition(entityx);
+             this.teleportSpectators(newLevel, oldLevel);
 -            profilerFiller.pop();
              return entityx;
          }
