@@ -87,7 +87,7 @@ There are a variety of files and directories that weaver uses during patch remap
 need to worry about. This is the directory where patches are applied, and code is remapped.
 
 ```
-<project\_root>/.gradle/caches/paperweight/patch-remap-input
+.gradle/caches/paperweight/patch-remap-input
 ```
 
 That directory contains what would be the `src/minecraft/java` directory during the patch remapping process.
