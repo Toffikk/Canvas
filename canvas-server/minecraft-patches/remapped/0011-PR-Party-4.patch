@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dueris <jedimastertoothless@hotmail.com>
+Date: Sat, 17 Jan 2026 18:43:05 -0800
+Subject: [PATCH] PR Party 4
+
+
+diff --git a/net/minecraft/world/entity/projectile/throwableitemprojectile/ThrownEnderpearl.java b/net/minecraft/world/entity/projectile/throwableitemprojectile/ThrownEnderpearl.java
+index b5d7566a78b7fe106b47499b98f5538baebbec62..5f4d5f18680e17473bc5ff2f4a9cd1a16bf73200 100644
+--- a/net/minecraft/world/entity/projectile/throwableitemprojectile/ThrownEnderpearl.java
++++ b/net/minecraft/world/entity/projectile/throwableitemprojectile/ThrownEnderpearl.java
+@@ -257,7 +257,7 @@ public class ThrownEnderpearl extends ThrowableItemProjectile {
+             int sectionPosZ = SectionPos.blockToSectionCoord(this.position().z());
+             Entity entity = this.owner != null ? findOwnerIncludingDeadPlayer(serverLevel, this.owner.getUUID()) : null;
+             if (entity instanceof ServerPlayer serverPlayer
+-                && !entity.isAlive()
++                && serverPlayer.getHealth() <= 0.0f // Folia - region threading
+                 && !serverPlayer.wonGame
+                 && serverPlayer.level().getGameRules().get(GameRules.ENDER_PEARLS_VANISH_ON_DEATH)) {
+                 this.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
