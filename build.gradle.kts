@@ -78,6 +78,7 @@ subprojects {
         }
     }
     tasks.withType<RebuildGitPatches>().configureEach {
+        baseRef = "basepatches" // rebuild source patches as a feature patch for remapping
         filterPatches = false
     }
     tasks.withType<RebuildBaseGitPatches>().configureEach {
