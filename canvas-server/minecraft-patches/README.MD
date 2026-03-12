@@ -12,7 +12,7 @@ yourself. This is identical to any other upstream update.
 -----
 
 This repo contains a mappings file (mojang+parchment -> mojang unobf) that will be used during the patch remapping.
-> [!WARNING}
+> [!WARNING]
 > Weaver only supports `Tiny` v1/v2 mappings for remapping.
 > Additionally, by default the simple remapping type in Mercury is used by Weaver.
 > Should your mappings file contain changes to class names/packages, append the `--no-simple-remap` flag to the remap task.
