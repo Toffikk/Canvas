@@ -22,6 +22,9 @@ This repo contains a mappings file (mojang+parchment -> mojang unobf) that will 
 
 Should you wish to remap to/from different mappings, place the mappings file, that should be used while remapping under `build-data` under the name of `remap-mappings.tiny`
 
+> [!INFO]
+> The directories below, such as 0001,0002 etc, refer to subdirectories under the `unmapped` directory.
+
 
 If your repo contains any patches that shouldn't be remapped but are important for apply (such as generated additional upstreams) it is important to place them under `0001`.
 Place the patches you want to remap in `0002`. Weaver will only remap patches placed in the last directory - for
