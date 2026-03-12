@@ -12,19 +12,24 @@ yourself. This is identical to any other upstream update.
 -----
 
 This repo contains a mappings file (mojang+parchment -> mojang unobf) that will be used during the patch remapping.
+
 > [!WARNING]
 > Weaver only supports `Tiny` v1/v2 mappings for remapping.
 > Additionally, by default the simple remapping type in Mercury is used by Weaver.
-> Should your mappings file contain changes to class names/packages, append the `--no-simple-remap` flag to the remap task.
+> If your mappings file contain changes to class names/packages, append the `--no-simple-remap` flag to the remap task.
+
 
 Should you wish to remap to/from different mappings, place the mappings file, that should be used while remapping under `build-data` under the name of `remap-mappings.tiny`
+
 
 If your repo contains any patches that shouldn't be remapped but are important for apply (such as generated additional upstreams) it is important to place them under `0001`.
 Place the patches you want to remap in `0002`. Weaver will only remap patches placed in the last directory - for
 example if there are directories `0001`, `0002`, and `0003`, only the patches in `0003` will be remapped.
 
+
 > [!CAUTION]
 > All of the directories should contain unmapped patches, as they will get applied on top of the unmapped source.
+
 
 For example:
 
@@ -59,6 +64,7 @@ To start remapping patches, run the `remapPatches` task:
 This can take a very long time, hours even, as patch remapping is a very complex and CPU \& disk intensive task. How long
 it takes depends entirely on how many patches there are to be remapped, and how powerful your computer is.
 
+
 That said, while you may need to walk away during the process, the remapping process does require some amount of
 hands-on work to get it to complete. If you leave for a while and come back to a patch failure, you'll need to fix the
 issue and restart paperweight to pick up from where it left off, explained below.
@@ -69,6 +75,7 @@ It is likely that patch remapping will succeed first try.
 Should the patch application fail, it is caused by your patches failing one way or another due
 to minor differences in tooling, setup, etc. Again, it is your responsibility to handle patch application issues as they
 come up just like any other upstream update.
+
 
 While the process of fixing issues with patch application is the same, how to resume and complete the process is
 different, as it hopefully goes without saying that patch remapping is a more complex process which requires extra work
