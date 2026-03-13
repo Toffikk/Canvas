@@ -19,7 +19,7 @@ This branch contains a mappings file (`mojang+parchment -> mojang unobf`) that w
 > Additionally, by default the simple remapping type in Mercury is used by Weaver.
 > If your mappings file contains changes to class names/packages, append the `--no-simple-remap` flag to the remap task.
 
-Should you wish to remap to/from different mappings, first ensure that the namespaces match `mojang -> unobf`, after this, place the mappings file, that should be used while remapping under `build-data`, replacing the current file under the name of `remap-mappings.tiny`
+Should you wish to remap to/from different mappings, first ensure that the namespaces match `mojang -> official`, after this, place the mappings file, that should be used while remapping under `build-data`, replacing the current file under the name of `remap-mappings.tiny`
 
 > [!TIP]
 > The directories below, such as `0001`, `0002` and so on, refer to subdirectories under the `unmapped` directory.
