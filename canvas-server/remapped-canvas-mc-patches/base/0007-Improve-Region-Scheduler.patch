@@ -1,0 +1,673 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dueris <jedimastertoothless@hotmail.com>
+Date: Tue, 23 Dec 2025 14:37:03 -0800
+Subject: [PATCH] Improve Region Scheduler
+
+
+diff --git a/io/papermc/paper/threadedregions/RegionizedServer.java b/io/papermc/paper/threadedregions/RegionizedServer.java
+index 399477cf0964e7774821792c78ea9bb619fbb617..63cdfac1196aae59318125242ca71eb5e9809240 100644
+--- a/io/papermc/paper/threadedregions/RegionizedServer.java
++++ b/io/papermc/paper/threadedregions/RegionizedServer.java
+@@ -32,8 +32,18 @@ import java.util.function.BooleanSupplier;
+ 
+ public final class RegionizedServer {
+ 
+-    private static final Logger LOGGER = LogUtils.getLogger();
++    private static final Logger LOGGER = LogUtils.getClassLogger(); // Canvas - region threading
+     private static final RegionizedServer INSTANCE = new RegionizedServer();
++    // Canvas start - region threading
++    public static final int DEFAULT_TICK_RATE = 20;
++    public static final long DEFAULT_TICK_TIME_NANOS = 50_000_000; // 1_000_000_000 / 20 (20 being default tick rate)
++
++    // Note: used for setting new tick time nanos, not really for anything else, utility method
++    //    this is fine for decimal rates, as we round it so if anything, we are like 1 nanosecond off... which isn't bad
++    public static long tickTimeNanosFromRate(float rate) {
++        return Math.round(1_000_000_000 / rate);
++    }
++    // Canvas end - region threading
+ 
+     public final RegionizedTaskQueue taskQueue = new RegionizedTaskQueue();
+ 
+@@ -349,6 +359,7 @@ public final class RegionizedServer {
+ 
+         // tick player ping sample
+         this.tickPlayerSample();
++        MinecraftServer.getServer().tickRateManager().tick(); // Canvas - region threading
+ 
+         // tick worlds
+         for (final ServerLevel world : this.worlds) {
+@@ -478,6 +489,7 @@ public final class RegionizedServer {
+     }
+ 
+     private void advanceWeatherCycle(final ServerLevel world) {
++        if (!world.tickRateManager().runsNormally()) return; // Canvas - region threading
+         world.advanceWeatherCycle();
+     }
+ 
+@@ -490,6 +502,7 @@ public final class RegionizedServer {
+     }
+ 
+     private void tickTime(final ServerLevel world, final long tickCount) {
++        if (!world.tickRateManager().runsNormally()) return; // Canvas - region threading
+         if (world.tickTime) {
+             if (world.getGameRules().get(GameRules.ADVANCE_TIME)) {
+                 world.setDayTime(world.levelData.getDayTime() + tickCount);
+diff --git a/io/papermc/paper/threadedregions/RegionizedWorldData.java b/io/papermc/paper/threadedregions/RegionizedWorldData.java
+index 1f49d787ecee4ba9dce087036a4e3cbce2228c17..3e3c10df71c7269ab063e80d30584b34918067fa 100644
+--- a/io/papermc/paper/threadedregions/RegionizedWorldData.java
++++ b/io/papermc/paper/threadedregions/RegionizedWorldData.java
+@@ -64,7 +64,7 @@ import java.util.function.Predicate;
+ 
+ public final class RegionizedWorldData {
+ 
+-    private static final Logger LOGGER = LogUtils.getLogger();
++    private static final Logger LOGGER = LogUtils.getClassLogger(); // Canvas - region threading
+ 
+     private static final Entity[] EMPTY_ENTITY_ARRAY = new Entity[0];
+ 
+@@ -486,7 +486,7 @@ public final class RegionizedWorldData {
+         this.hasEntityMoveEvent = io.papermc.paper.event.entity.EntityMoveEvent.getHandlerList().getRegisteredListeners().length > 0; // Paper - Add EntityMoveEvent
+         this.skipHopperEvents = this.world.paperConfig().hopper.disableMoveEvent || org.bukkit.event.inventory.InventoryMoveItemEvent.getHandlerList().getRegisteredListeners().length == 0; // Paper - Perf: Optimize Hoppers
+         // always subtract from server init so that the tick starts at zero, allowing us to cast to int without much worry
+-        this.lagCompensationTick = (System.nanoTime() - MinecraftServer.SERVER_INIT) / TickRegionScheduler.TIME_BETWEEN_TICKS;
++        this.lagCompensationTick = (System.nanoTime() - MinecraftServer.SERVER_INIT) / TickRegionScheduler.getTimeBetweenTicks(); // Canvas - region threading
+     }
+ 
+     public NearbyPlayers getNearbyPlayers() {
+diff --git a/io/papermc/paper/threadedregions/TickRegionScheduler.java b/io/papermc/paper/threadedregions/TickRegionScheduler.java
+index 71260702b8ba260001a5f1c1e935dd5b8717f3d7..fbaf766d6648c7c02455056690bd0500740dac42 100644
+--- a/io/papermc/paper/threadedregions/TickRegionScheduler.java
++++ b/io/papermc/paper/threadedregions/TickRegionScheduler.java
+@@ -28,7 +28,7 @@ import java.util.function.BooleanSupplier;
+ 
+ public final class TickRegionScheduler {
+ 
+-    private static final Logger LOGGER = LogUtils.getLogger();
++    public static final Logger LOGGER = LogUtils.getClassLogger(); // Canvas - region threading
+     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
+     private static final boolean MEASURE_CPU_TIME;
+     static {
+@@ -53,6 +53,7 @@ public final class TickRegionScheduler {
+ 
+     public static enum SchedulerType {
+         EDF,
++        AFFINITY, // Canvas - add AFFINITY scheduler
+         WORK_STEALING;
+     }
+ 
+@@ -68,32 +69,16 @@ public final class TickRegionScheduler {
+             public Thread newThread(final Runnable run) {
+                 final Thread ret = new TickThreadRunner(this.threadGroup, run, "Folia Region Scheduler Thread #" + this.idGenerator.getAndIncrement());
+                 ret.setUncaughtExceptionHandler(TickRegionScheduler.this::uncaughtException);
++                ret.setPriority(8); // Canvas - bump priority to match main thread in Paper
+                 return ret;
+             }
+         };
+ 
+-        switch (schedulerType) {
+-            case EDF: {
+-                this.scheduler = new EDFSchedulerThreadPool(initialThreads, threadFactory);
+-                break;
+-            }
+-            case WORK_STEALING: {
+-                this.scheduler = new StealingScheduledThreadPool(
+-                        threadFactory, MoonriseConstants.NUMA_ENABLE ? OSNuma.getNativeInstance() : OSNuma.NoOp.INSTANCE
+-                );
+-                ((StealingScheduledThreadPool)this.scheduler).setFlags(StealingScheduledThreadPool.FLAG_SCHEDULE_EVENLY);
+-                break;
+-            }
+-            default: {
+-                throw new IllegalStateException("Unknown scheduler type: " + schedulerType);
+-            }
+-        }
++        this.scheduler = io.canvasmc.canvas.tick.SchedulerUtil.decideScheduler(schedulerType,  initialThreads, threadFactory); // Canvas - region threading
+     }
+ 
+     public void start() {
+-        if (this.scheduler instanceof EDFSchedulerThreadPool edfSchedulerThreadPool) {
+-            edfSchedulerThreadPool.start();
+-        }
++        io.canvasmc.canvas.tick.SchedulerUtil.startScheduler(); // Canvas - region threading
+     }
+ 
+     public void setThreads(final int threads) {
+@@ -123,6 +108,28 @@ public final class TickRegionScheduler {
+             stealingScheduledThreadPool.setThreadAllocation(threadAllocation, stealThresholdNS, taskTimeSliceNS);
+         }
+     }
++    // Canvas start - region threading
++    private boolean hasStarted = false;
++    public boolean hasStarted() {
++        return hasStarted;
++    }
++
++    private static float currTickRate = RegionizedServer.DEFAULT_TICK_RATE;
++    private static long currTimeBetweenTicks = RegionizedServer.DEFAULT_TICK_TIME_NANOS;
++
++    public static void modifyTickRate(final float newRate) {
++        currTickRate = newRate;
++        currTimeBetweenTicks = RegionizedServer.tickTimeNanosFromRate(newRate);
++    }
++
++    public static float getTickRate() {
++        return currTickRate;
++    }
++
++    public static long getTimeBetweenTicks() {
++        return currTimeBetweenTicks;
++    }
++    // Canvas end - region threading
+ 
+     public int getTotalThreadCount() {
+         return this.scheduler.getAliveThreads().length;
+@@ -172,6 +179,16 @@ public final class TickRegionScheduler {
+         }
+         return tickThreadRunner.currentTickingRegion;
+     }
++    // Canvas start - region threading
++
++    /**
++     * Returns if the current thread is a tick thread runner
++     */
++    public static boolean isTickRunner() {
++        final Thread currThread = Thread.currentThread();
++        return currThread instanceof TickThreadRunner;
++    }
++    // Canvas end - region threading
+ 
+     /**
+      * Returns the current ticking region's world regionised data, or {@code null} if there is no ticking region.
+@@ -241,6 +258,16 @@ public final class TickRegionScheduler {
+     private void uncaughtException(final Thread thread, final Throwable thr) {
+         LOGGER.error("Uncaught exception in tick thread \"" + thread.getName() + "\"", thr);
+ 
++        // Canvas start - region threading
++        net.minecraft.CrashReport crashReport = net.minecraft.CrashReport.forThrowable(thr, "Region Crash");
++        net.minecraft.server.MinecraftServer.getServer().fillSystemReport(crashReport.getSystemReport());
++        java.nio.file.Path path = net.minecraft.server.MinecraftServer.getServer().getServerDirectory().resolve("crash-reports").resolve("crash-" + net.minecraft.util.Util.getFilenameFormattedDateTime() + "-server.txt");
++        if (crashReport.saveToFile(path, net.minecraft.ReportType.CRASH)) {
++            LOGGER.error("This crash report has been saved to: {}", path.toAbsolutePath());
++        } else {
++            LOGGER.error("We were unable to save this crash report to disk.");
++        }
++        // Canvas end - region threading
+         // prevent further ticks from occurring
+         // we CANNOT sync, because WE ARE ON A SCHEDULER THREAD
+         this.scheduler.halt();
+@@ -251,6 +278,19 @@ public final class TickRegionScheduler {
+     private void regionFailed(final RegionScheduleHandle handle, final boolean executingTasks, final Throwable thr) {
+         // when a region fails, we need to shut down the server gracefully
+ 
++        // Canvas start - region threading
++        net.minecraft.CrashReport crashReport = net.minecraft.CrashReport.forThrowable(thr, "Region Crash");
++        net.minecraft.server.MinecraftServer.getServer().fillSystemReport(crashReport.getSystemReport());
++        net.minecraft.CrashReportCategory crashReportCategory = crashReport.addCategory("Region Context");
++        crashReportCategory.setDetail("Executing Tasks", () -> String.valueOf(executingTasks));
++        crashReportCategory.setDetail("RegionScheduleHandle", handle.region == null ? "Not available" : handle.region.region);
++        java.nio.file.Path path = net.minecraft.server.MinecraftServer.getServer().getServerDirectory().resolve("crash-reports").resolve("crash-" + net.minecraft.util.Util.getFilenameFormattedDateTime() + "-server.txt");
++        if (crashReport.saveToFile(path, net.minecraft.ReportType.CRASH)) {
++            LOGGER.error("This crash report has been saved to: {}", path.toAbsolutePath());
++        } else {
++            LOGGER.error("We were unable to save this crash report to disk.");
++        }
++        // Canvas end - region threading
+         // prevent further ticks from occurring
+         // we CANNOT sync, because WE ARE ON A SCHEDULER THREAD
+         this.scheduler.halt();
+@@ -297,6 +337,10 @@ public final class TickRegionScheduler {
+         protected final Schedule tickSchedule;
+ 
+         private TickRegionScheduler scheduler;
++        public long ticksToSprint = 0; // Canvas - region threading
++        public boolean wasSprinting = false; // Canvas - region threading
++        public long startSprintNanos = System.nanoTime(); // Canvas - region threading
++        public long lastTickTimeEndNanos = Long.MIN_VALUE; // Canvas - region threading
+ 
+         public RegionScheduleHandle(final TickRegions.TickRegionData region, final long firstStart) {
+             this.currentTick = 0L;
+@@ -309,7 +353,7 @@ public final class TickRegionScheduler {
+             this.region = region;
+ 
+             this.setScheduledStart(firstStart);
+-            this.tickSchedule = new Schedule(firstStart == TimeUtil.DEADLINE_NOT_SET ? firstStart : firstStart - TIME_BETWEEN_TICKS);
++            this.tickSchedule = new Schedule(firstStart == TimeUtil.DEADLINE_NOT_SET ? firstStart : firstStart - getTimeBetweenTicks()); // Canvas - region threading
+         }
+ 
+         /**
+@@ -318,7 +362,7 @@ public final class TickRegionScheduler {
+          */
+         protected final void updateScheduledStart(final long to) {
+             this.setScheduledStart(to);
+-            this.tickSchedule.setLastPeriod(to == TimeUtil.DEADLINE_NOT_SET ? to : to - TIME_BETWEEN_TICKS);
++            this.tickSchedule.setLastPeriod(to == TimeUtil.DEADLINE_NOT_SET ? to : to - getTimeBetweenTicks()); // Canvas - region threading
+         }
+ 
+         public final void markNonSchedulable() {
+@@ -409,9 +453,36 @@ public final class TickRegionScheduler {
+ 
+             final long cpuStart = MEASURE_CPU_TIME ? THREAD_MX_BEAN.getCurrentThreadCpuTime() : 0L;
+             final long tickStart = System.nanoTime();
++            // Canvas start - region threading
++            boolean isSprinting = ticksToSprint > 0;
++            if (isSprinting) {
++                ticksToSprint--;
++                if (!wasSprinting) {
++                    startSprintNanos = System.nanoTime();
++                    wasSprinting = true;
++                }
++            } else if (wasSprinting) {
++                String name = this instanceof io.papermc.paper.threadedregions.RegionizedServer.GlobalTickTickHandle ?
++                    "Global Tick" : this.region.region.toString();
++                LOGGER.info("Scheduling Handle for {} finished tick sprint in {}ms", name, (System.nanoTime() - startSprintNanos) / 1e+6);
++                wasSprinting = false;
++            }
++            long deadlineFuture = isSprinting ? 1 : getTimeBetweenTicks(); // if sprinting, future is 0ns
++            if (lastTickTimeEndNanos != Long.MIN_VALUE
++                && lastTickTimeEndNanos + getTimeBetweenTicks() + (io.canvasmc.canvas.Config.INSTANCE.scheduler.overloadedLogMillis * 1_000_000L) <= tickStart) {
++                // missed deadline to be considered "overloaded"
++                double seconds = (tickStart - (lastTickTimeEndNanos + getTimeBetweenTicks())) / 1_000_000_000.0;
++                String formatted = String.format("%.2f", seconds);
++                if (this instanceof io.papermc.paper.threadedregions.RegionizedServer.GlobalTickTickHandle) {
++                    LOGGER.warn("Global tick missed deadline by {}s! Is the scheduler overloaded?", formatted);
++                } else if (this instanceof io.papermc.paper.threadedregions.TickRegions.ConcreteRegionTickHandle regionTickHandle)
++                    LOGGER.warn("Region surrounding {} in world '{}' missed deadline by {}s! Is the scheduler overloaded?",
++                        regionTickHandle.region.region.getCenterChunk(), regionTickHandle.region.world.dimension().identifier().getPath(), formatted);
++            }
++            // Canvas end - region threading
+ 
+             // use max(), don't assume that tickStart >= scheduledStart
+-            final long tickCount = Math.max(1L, this.tickSchedule.getPeriodsAhead(TIME_BETWEEN_TICKS, tickStart));
++            final long tickCount = Math.max(1L, this.tickSchedule.getPeriodsAhead(deadlineFuture, tickStart)); // Canvas - region threading
+ 
+             if (!this.tryMarkTicking()) {
+                 if (!this.cancelled.get()) {
+@@ -435,7 +506,7 @@ public final class TickRegionScheduler {
+             this.lastTickStart = tickStart;
+ 
+             final long scheduledStart = this.getScheduledStart();
+-            final long scheduledEnd = scheduledStart + TIME_BETWEEN_TICKS;
++            final long scheduledEnd = scheduledStart + deadlineFuture; // Canvas - region threading
+ 
+             final long intermediateTaskTime;
+             final long intermediateTaskTimeCPU;
+@@ -472,8 +543,10 @@ public final class TickRegionScheduler {
+                 // in order to ensure all regions get their chance at scheduling, we have to ensure that regions
+                 // that exceed the max tick time are not always prioritised over everything else. Thus, we use the greatest
+                 // of the current time and "ideal" next tick start.
+-                this.tickSchedule.advanceBy(tickCount, TIME_BETWEEN_TICKS);
+-                this.setScheduledStart(TimeUtil.getGreatestTime(tickEnd, this.tickSchedule.getDeadline(TIME_BETWEEN_TICKS)));
++                // Canvas start - region threading
++                this.tickSchedule.advanceBy(tickCount, deadlineFuture);
++                this.setScheduledStart(TimeUtil.getGreatestTime(tickEnd, this.tickSchedule.getDeadline(deadlineFuture)));
++                // Canvas end - region threading
+ 
+                 final TickTime time = new TickTime(
+                     lastTickStart, scheduledStart, tickStart, cpuStart, tickEnd, cpuEnd,
+@@ -482,6 +555,7 @@ public final class TickRegionScheduler {
+                 );
+ 
+                 this.addTickTime(time);
++                this.lastTickTimeEndNanos = tickEnd; // Canvas - region threading
+                 TickRegionScheduler.setTickTask(null);
+                 if (this.region != null) {
+                     TickRegionScheduler.setTickingRegion(null);
+@@ -525,31 +599,31 @@ public final class TickRegionScheduler {
+ 
+         public final TickData.TickReportData getTickReport5s(final long currTime) {
+             synchronized (this) {
+-                return this.tickTimes5s.generateTickReport(this.adjustCurrentTickData(currTime), currTime, TIME_BETWEEN_TICKS);
++                return this.tickTimes5s.generateTickReport(this.adjustCurrentTickData(currTime), currTime, getTimeBetweenTicks()); // Canvas - region threading
+             }
+         }
+ 
+         public final TickData.TickReportData getTickReport15s(final long currTime) {
+             synchronized (this) {
+-                return this.tickTimes15s.generateTickReport(this.adjustCurrentTickData(currTime), currTime, TIME_BETWEEN_TICKS);
++                return this.tickTimes15s.generateTickReport(this.adjustCurrentTickData(currTime), currTime, getTimeBetweenTicks()); // Canvas - region threading
+             }
+         }
+ 
+         public final TickData.TickReportData getTickReport1m(final long currTime) {
+             synchronized (this) {
+-                return this.tickTimes1m.generateTickReport(this.adjustCurrentTickData(currTime), currTime, TIME_BETWEEN_TICKS);
++                return this.tickTimes1m.generateTickReport(this.adjustCurrentTickData(currTime), currTime, getTimeBetweenTicks()); // Canvas - region threading
+             }
+         }
+ 
+         public final TickData.TickReportData getTickReport5m(final long currTime) {
+             synchronized (this) {
+-                return this.tickTimes5m.generateTickReport(this.adjustCurrentTickData(currTime), currTime, TIME_BETWEEN_TICKS);
++                return this.tickTimes5m.generateTickReport(this.adjustCurrentTickData(currTime), currTime, getTimeBetweenTicks()); // Canvas - region threading
+             }
+         }
+ 
+         public final TickData.TickReportData getTickReport15m(final long currTime) {
+             synchronized (this) {
+-                return this.tickTimes15m.generateTickReport(this.adjustCurrentTickData(currTime), currTime, TIME_BETWEEN_TICKS);
++                return this.tickTimes15m.generateTickReport(this.adjustCurrentTickData(currTime), currTime, getTimeBetweenTicks()); // Canvas - region threading
+             }
+         }
+ 
+diff --git a/io/papermc/paper/threadedregions/TickRegions.java b/io/papermc/paper/threadedregions/TickRegions.java
+index 50cf0f76be33a671c8143abd778a4a18dd2a8400..37b361e20b5c314b544a3ac540d33a47eb8cf620 100644
+--- a/io/papermc/paper/threadedregions/TickRegions.java
++++ b/io/papermc/paper/threadedregions/TickRegions.java
+@@ -26,7 +26,7 @@ import java.util.function.BooleanSupplier;
+ 
+ public final class TickRegions implements ThreadedRegionizer.RegionCallbacks<TickRegions.TickRegionData, TickRegions.TickRegionSectionData> {
+ 
+-    private static final Logger LOGGER = LogUtils.getLogger();
++    private static final Logger LOGGER = LogUtils.getClassLogger(); // Canvas - region threading
+     private static int regionShift = 31;
+ 
+     public static int getRegionChunkShift() {
+@@ -103,6 +103,7 @@ public final class TickRegions implements ThreadedRegionizer.RegionCallbacks<Tic
+     @Override
+     public void onRegionDestroy(final ThreadedRegionizer.ThreadedRegion<TickRegionData, TickRegionSectionData> region) {
+         // nothing for now
++        io.canvasmc.canvas.tick.SchedulerUtil.getHandle().onRegionDestroy(region); // Canvas - region profiler
+     }
+ 
+     @Override
+@@ -120,6 +121,7 @@ public final class TickRegions implements ThreadedRegionizer.RegionCallbacks<Tic
+         scheduler.descheduleRegion(data.tickHandle);
+         // old handle cannot be scheduled anymore, copy to a new handle
+         data.tickHandle = data.tickHandle.copy();
++        io.canvasmc.canvas.tick.SchedulerUtil.getHandle().onRegionInactive(region); // Canvas - region profiler
+     }
+ 
+     @Override
+@@ -301,6 +303,7 @@ public final class TickRegions implements ThreadedRegionizer.RegionCallbacks<Tic
+                 }
+             }
+ 
++            io.canvasmc.canvas.tick.SchedulerUtil.getHandle().onRegionSplit(this, into, world); // Canvas - region profiler
+             // generic regionised data
+             for (final Iterator<Reference2ReferenceMap.Entry<RegionizedData<?>, Object>> dataIterator = this.regionizedData.reference2ReferenceEntrySet().fastIterator();
+                  dataIterator.hasNext();) {
+@@ -388,6 +391,7 @@ public final class TickRegions implements ThreadedRegionizer.RegionCallbacks<Tic
+ 
+             // task queue
+             this.taskQueueData.mergeInto(data.taskQueueData);
++            io.canvasmc.canvas.tick.SchedulerUtil.getHandle().onRegionMerge(this, data, world); // Canvas - region profiler
+         }
+     }
+ 
+@@ -406,6 +410,7 @@ public final class TickRegions implements ThreadedRegionizer.RegionCallbacks<Tic
+             ret.currentTick = this.currentTick;
+             ret.lastTickStart = this.lastTickStart;
+             ret.tickSchedule.setLastPeriod(this.tickSchedule.getLastPeriod());
++            io.canvasmc.canvas.tick.SchedulerUtil.getHandle().tryTransferPinningState(this, ret); // Canvas - region profiler
+ 
+             return ret;
+         }
+@@ -436,7 +441,7 @@ public final class TickRegions implements ThreadedRegionizer.RegionCallbacks<Tic
+ 
+         private void checkInitialSchedule() {
+             if (this.getScheduledStart() == TimeUtil.DEADLINE_NOT_SET) {
+-                this.updateScheduledStart(System.nanoTime() + TickRegionScheduler.TIME_BETWEEN_TICKS);
++                this.updateScheduledStart(System.nanoTime() + TickRegionScheduler.getTimeBetweenTicks()); // Canvas - region threading
+             }
+         }
+ 
+diff --git a/io/papermc/paper/threadedregions/commands/CommandServerHealth.java b/io/papermc/paper/threadedregions/commands/CommandServerHealth.java
+index 2c3a3c9dd48b096d12bbff344750a1eae1f0549e..0823b2cd437de8d40aa3ea6218c0e84173057282 100644
+--- a/io/papermc/paper/threadedregions/commands/CommandServerHealth.java
++++ b/io/papermc/paper/threadedregions/commands/CommandServerHealth.java
+@@ -55,14 +55,14 @@ public final class CommandServerHealth extends Command {
+     }
+ 
+     private static Component formatRegionInfo(final String prefix, final double util, final double mspt, final double tps,
+-                                              final boolean newline) {
++                                              final boolean newline, final io.papermc.paper.threadedregions.TickRegionScheduler.RegionScheduleHandle regionHandle) { // Canvas - region threading
+         return Component.text()
+             .append(Component.text(prefix, PRIMARY, TextDecoration.BOLD))
+-            .append(Component.text(ONE_DECIMAL_PLACES.get().format(util * 100.0), CommandUtil.getUtilisationColourRegion(util)))
++            .append(Component.text(ONE_DECIMAL_PLACES.get().format(util * 100.0), regionHandle.ticksToSprint > 0 ? CommandUtil.SPRINTING_COLOR : CommandUtil.getUtilisationColourRegion(util))) // Canvas - region threading
+             .append(Component.text("% util at ", PRIMARY))
+-            .append(Component.text(TWO_DECIMAL_PLACES.get().format(mspt), CommandUtil.getColourForMSPT(mspt)))
++            .append(Component.text(TWO_DECIMAL_PLACES.get().format(mspt), regionHandle.ticksToSprint > 0 ? CommandUtil.SPRINTING_COLOR : CommandUtil.getColourForMSPT(mspt))) // Canvas - region threading
+             .append(Component.text(" MSPT at ", PRIMARY))
+-            .append(Component.text(TWO_DECIMAL_PLACES.get().format(tps), CommandUtil.getColourForTPS(tps)))
++            .append(Component.text(TWO_DECIMAL_PLACES.get().format(tps), regionHandle.ticksToSprint > 0 ? CommandUtil.SPRINTING_COLOR : CommandUtil.getColourForTPS(tps))) // Canvas - region threading
+             .append(Component.text(" TPS" + (newline ? "\n" : ""), PRIMARY))
+             .build();
+     }
+@@ -113,10 +113,10 @@ public final class CommandServerHealth extends Command {
+             .append(Component.text(":\n", PRIMARY))
+ 
+             .append(
+-                formatRegionInfo("15s: ", util15s, mspt15s, tps15s, true)
++                formatRegionInfo("15s: ", util15s, mspt15s, tps15s, true, region.getData().getRegionSchedulingHandle()) // Canvas - region threading
+             )
+             .append(
+-                formatRegionInfo("1m: ", util1m, mspt1m, tps1m, true)
++                formatRegionInfo("1m: ", util1m, mspt1m, tps1m, true, region.getData().getRegionSchedulingHandle()) // Canvas - region threading
+             )
+             .append(
+                 formatRegionStats(region.getData().getRegionStats(), false)
+@@ -250,11 +250,11 @@ public final class CommandServerHealth extends Command {
+                 .append(Component.text(":\n", PRIMARY))
+ 
+                 .append(Component.text("    ", PRIMARY))
+-                .append(Component.text(ONE_DECIMAL_PLACES.get().format(util * 100.0), CommandUtil.getUtilisationColourRegion(util)))
++                .append(Component.text(ONE_DECIMAL_PLACES.get().format(util * 100.0), region.getData().getRegionSchedulingHandle().ticksToSprint > 0 ? CommandUtil.SPRINTING_COLOR : CommandUtil.getUtilisationColourRegion(util))) // Canvas - region threading
+                 .append(Component.text("% util at ", PRIMARY))
+-                .append(Component.text(TWO_DECIMAL_PLACES.get().format(mspt), CommandUtil.getColourForMSPT(mspt)))
++                .append(Component.text(TWO_DECIMAL_PLACES.get().format(mspt), region.getData().getRegionSchedulingHandle().ticksToSprint > 0 ? CommandUtil.SPRINTING_COLOR : CommandUtil.getColourForMSPT(mspt))) // Canvas - region threading
+                 .append(Component.text(" MSPT at ", PRIMARY))
+-                .append(Component.text(TWO_DECIMAL_PLACES.get().format(tps), CommandUtil.getColourForTPS(tps)))
++                .append(Component.text(TWO_DECIMAL_PLACES.get().format(tps), region.getData().getRegionSchedulingHandle().ticksToSprint > 0 ? CommandUtil.SPRINTING_COLOR : CommandUtil.getColourForTPS(tps))) // Canvas - region threading
+                 .append(Component.text(" TPS\n", PRIMARY))
+ 
+                 .append(Component.text("    ", PRIMARY))
+diff --git a/io/papermc/paper/threadedregions/commands/CommandUtil.java b/io/papermc/paper/threadedregions/commands/CommandUtil.java
+index 8d4f092ec65d285508be81cbfadd6e747e1d067e..5d895bc64e471368c65f6eab4bdd430bb857de90 100644
+--- a/io/papermc/paper/threadedregions/commands/CommandUtil.java
++++ b/io/papermc/paper/threadedregions/commands/CommandUtil.java
+@@ -9,6 +9,16 @@ import java.util.List;
+ import java.util.function.Function;
+ 
+ public final class CommandUtil {
++    // Canvas start - region threading
++    public static final TextColor SPRINTING_COLOR = net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE;
++    public static final double diff2MultTps = 0.1D;
++    public static final double diff5MultTps = 0.25D;
++    public static final double diff10MultTps = 0.5D;
++    public static final double diff15MultMspt = 0.3D;
++    public static final double diff25MultMspt = 0.5D;
++    public static final double diff35MultMspt = 0.7D;
++    public static final double diff40MultMspt = 0.8D;
++    // Canvas end - region threading
+ 
+     public static List<String> getSortedList(final Iterable<String> iterable) {
+         final List<String> ret = new ArrayList<>();
+@@ -63,39 +73,45 @@ public final class CommandUtil {
+     }
+ 
+     public static TextColor getColourForTPS(final double tps) {
+-        final double difference = Math.min(Math.abs(20.0 - tps), 20.0);
++        // Canvas start - region threading
++        final float rate = io.papermc.paper.threadedregions.TickRegionScheduler.getTickRate();
++        final double difference = Math.min(Math.abs(rate - tps), rate);
+         final double coordinate;
+-        if (difference <= 2.0) {
++        if (difference <= (rate * diff2MultTps)) {
+             // >= 18 tps
+-            coordinate = 70.0 + ((140.0 - 70.0)/(0.0 - 2.0)) * (difference - 2.0);
+-        } else if (difference <= 5.0) {
++            coordinate = 70.0 + ((140.0 - 70.0)/(0.0 - (rate * diff2MultTps))) * (difference - (rate * diff2MultTps));
++        } else if (difference <= (rate * diff5MultTps)) {
+             // >= 15 tps
+-            coordinate = 30.0 + ((70.0 - 30.0)/(2.0 - 5.0)) * (difference - 5.0);
+-        } else if (difference <= 10.0) {
++            coordinate = 30.0 + ((70.0 - 30.0)/((rate * diff2MultTps) - (rate * diff5MultTps))) * (difference - (rate * diff5MultTps));
++        } else if (difference <= (rate * diff10MultTps)) {
+             // >= 10 tps
+-            coordinate = 10.0 + ((30.0 - 10.0)/(5.0 - 10.0)) * (difference - 10.0);
++            coordinate = 10.0 + ((30.0 - 10.0)/((rate * diff5MultTps) - (rate * diff10MultTps))) * (difference - (rate * diff10MultTps));
+         } else {
+             // >= 0.0 tps
+-            coordinate = 0.0 + ((10.0 - 0.0)/(10.0 - 20.0)) * (difference - 20.0);
++            coordinate = 0.0 + ((10.0 - 0.0)/((rate * diff10MultTps) - rate)) * (difference - rate);
+         }
++        // Canvas end - region threading
+ 
+         return TextColor.color(HSVLike.hsvLike((float)(coordinate / 360.0), 85.0f / 100.0f, 80.0f / 100.0f));
+     }
+ 
+     public static TextColor getColourForMSPT(final double mspt) {
+-        final double clamped = Math.min(Math.abs(mspt), 50.0);
++        // Canvas start - region threading
++        final float time = 1000 / io.papermc.paper.threadedregions.TickRegionScheduler.getTickRate();
++        final double clamped = Math.min(Math.abs(mspt), time);
+         final double coordinate;
+-        if (clamped <= 15.0) {
+-            coordinate = 130.0 + ((140.0 - 130.0)/(0.0 - 15.0)) * (clamped - 15.0);
+-        } else if (clamped <= 25.0) {
+-            coordinate = 90.0 + ((130.0 - 90.0)/(15.0 - 25.0)) * (clamped - 25.0);
+-        } else if (clamped <= 35.0) {
+-            coordinate = 30.0 + ((90.0 - 30.0)/(25.0 - 35.0)) * (clamped - 35.0);
+-        } else if (clamped <= 40.0) {
+-            coordinate = 15.0 + ((30.0 - 15.0)/(35.0 - 40.0)) * (clamped - 40.0);
++        if (clamped <= (time * diff15MultMspt)) {
++            coordinate = 130.0 + ((140.0 - 130.0)/(0.0 - (time * diff15MultMspt))) * (clamped - (time * diff15MultMspt));
++        } else if (clamped <= (time * diff25MultMspt)) {
++            coordinate = 90.0 + ((130.0 - 90.0)/((time * diff15MultMspt) - (time * diff25MultMspt))) * (clamped - (time * diff25MultMspt));
++        } else if (clamped <= (time * diff35MultMspt)) {
++            coordinate = 30.0 + ((90.0 - 30.0)/((time * diff25MultMspt) - (time * diff35MultMspt))) * (clamped - (time * diff35MultMspt));
++        } else if (clamped <= (time * diff40MultMspt)) {
++            coordinate = 15.0 + ((30.0 - 15.0)/((time * diff35MultMspt) - (time * diff40MultMspt))) * (clamped - (time * diff40MultMspt));
+         } else {
+-            coordinate = 0.0 + ((15.0 - 0.0)/(40.0 - 50.0)) * (clamped - 50.0);
++            coordinate = 0.0 + ((15.0 - 0.0)/((time * diff40MultMspt) - time)) * (clamped - time);
+         }
++        // Canvas end - region threading
+ 
+         return TextColor.color(HSVLike.hsvLike((float)(coordinate / 360.0), 85.0f / 100.0f, 80.0f / 100.0f));
+     }
+diff --git a/net/minecraft/server/MinecraftServer.java b/net/minecraft/server/MinecraftServer.java
+index bae86e482d068c50ad6f824972a58d0bf70d9fbe..f5bdcaf8372bdd0698dc3a00600ddea0ae28bd32 100644
+--- a/net/minecraft/server/MinecraftServer.java
++++ b/net/minecraft/server/MinecraftServer.java
+@@ -1650,7 +1650,7 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+         };
+         // Folia end - region threading
+ 
+-        this.server.spark.tickStart(); // Paper - spark
++        // Canvas - removed, not needed
+         new com.destroystokyo.paper.event.server.ServerTickStartEvent((int)region.getCurrentTick()).callEvent(); // Paper - Server Tick Events // Folia - region threading
+         // Folia start - region threading
+         if (region != null) {
+@@ -1708,7 +1708,7 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+         long remaining = scheduledEnd - endTime; // Folia - region ticking
+         new com.destroystokyo.paper.event.server.ServerTickEndEvent((int)io.papermc.paper.threadedregions.RegionizedServer.getCurrentTick(), ((double)(endTime - startTime) / 1000000D), remaining).callEvent(); // Folia - region ticking
+         // Paper end - Server Tick Events
+-        this.server.spark.tickEnd(((double)(endTime - startTime) / 1000000D)); // Paper - spark // Folia - region threading
++        // Canvas - removed, not needed
+         // Folia - region threading
+     }
+ 
+diff --git a/net/minecraft/server/ServerTickRateManager.java b/net/minecraft/server/ServerTickRateManager.java
+index 6190d6ba8f8934b71e60fdb19a80bd4274c4e950..e43a7ce44921791e5aba8178edefa941b3529a0a 100644
+--- a/net/minecraft/server/ServerTickRateManager.java
++++ b/net/minecraft/server/ServerTickRateManager.java
+@@ -92,10 +92,7 @@ public class ServerTickRateManager extends TickRateManager {
+         String string = String.format(Locale.ROOT, "%.2f", l == 0L ? this.millisecondsPerTick() : d / l);
+         this.scheduledCurrentSprintTicks = 0L;
+         this.sprintTimeSpend = 0L;
+-        // Paper start - silence feedback when API requests sprint
+-        if (!this.silent) this.server.createCommandSourceStack().sendSuccess(() -> Component.translatable("commands.tick.sprint.report", i, string), true);
+-        this.silent = false;
+-        // Paper end - silence feedback when API requests sprint
++        // Canvas - region threading
+         this.remainingSprintTicks = 0L;
+         this.setFrozen(this.previousIsFrozen);
+         this.server.onTickRateChanged();
+diff --git a/net/minecraft/server/level/ServerLevel.java b/net/minecraft/server/level/ServerLevel.java
+index 24a49f44b57e1d06a6aafff4e0105cc1d658abd3..9f3fbd42eb78339c6e9901eedf5f37a39c44f89e 100644
+--- a/net/minecraft/server/level/ServerLevel.java
++++ b/net/minecraft/server/level/ServerLevel.java
+@@ -272,6 +272,57 @@ public class ServerLevel extends Level implements ServerEntityGetter, WorldGenLe
+         return true;
+     }
+ 
++    // Canvas start - region threading
++    public final void canvas$loadOrRunAtChunksAsync(final BlockPos pos, final int radiusBlocks,
++                                                    final ca.spottedleaf.concurrentutil.util.Priority priority,
++                                                    final Runnable callback) {
++        if (ca.spottedleaf.moonrise.common.util.TickThread.isTickThreadFor(
++            this, pos, radiusBlocks
++        )) {
++            // already on the running region, run callback
++            callback.run();
++        } else if (moonrise$areChunksLoaded(
++            (pos.getX() - radiusBlocks) >> 4,
++            (pos.getX() + radiusBlocks) >> 4,
++            (pos.getZ() - radiusBlocks) >> 4,
++            (pos.getZ() + radiusBlocks) >> 4
++        )) {
++            // chunks are loaded, schedule callback
++            io.papermc.paper.threadedregions.RegionizedServer.getInstance().taskQueue.queueTickTaskQueue(
++                this, pos.getX() >> 4, pos.getZ() >> 4, callback, priority
++            );
++        } else {
++            // chunks are not loaded, schedule load and callback
++            moonrise$loadChunksAsync(
++                pos, radiusBlocks, priority, (unused) -> callback.run()
++            );
++        }
++    }
++
++    public final void canvas$loadOrRunAtChunksAsync(final int minChunkX, final int maxChunkX, final int minChunkZ, final int maxChunkZ,
++                                                    final ca.spottedleaf.concurrentutil.util.Priority priority,
++                                                    final Runnable callback) {
++        if (ca.spottedleaf.moonrise.common.util.TickThread.isTickThreadFor(
++            this, minChunkX, minChunkZ, maxChunkX, maxChunkZ
++        )) {
++            // already on the running region, run callback
++            callback.run();
++        } else if (moonrise$areChunksLoaded(
++            minChunkX, minChunkZ, maxChunkX, maxChunkZ
++        )) {
++            // chunks are loaded, schedule callback
++            io.papermc.paper.threadedregions.RegionizedServer.getInstance().taskQueue.queueTickTaskQueue(
++                this, minChunkX, minChunkZ, callback, priority
++            );
++        } else {
++            // chunks are not loaded, schedule load and callback
++            moonrise$loadChunksAsync(
++                minChunkX, minChunkZ, maxChunkX, maxChunkZ, priority, (unused) -> callback.run()
++            );
++        }
++    }
++
++    // Canvas end - region threading
+     public final void loadChunksForMoveAsync(AABB box, ca.spottedleaf.concurrentutil.util.Priority priority,
+                                              java.util.function.Consumer<List<net.minecraft.world.level.chunk.ChunkAccess>> onLoad) {
+         // Paper - rewrite chunk system
+diff --git a/net/minecraft/server/level/TicketType.java b/net/minecraft/server/level/TicketType.java
+index ded991859a6a94693cce183b3bf380a9241a2976..33ee081848da6d245019ae594f5b117bd26177f4 100644
+--- a/net/minecraft/server/level/TicketType.java
++++ b/net/minecraft/server/level/TicketType.java
+@@ -75,6 +75,7 @@ public final class TicketType<T> implements ca.spottedleaf.moonrise.patches.chun
+     public static final TicketType<Long> TELEPORT_HOLD_TICKET = ca.spottedleaf.moonrise.patches.chunk_system.ticket.ChunkSystemTicketType.create("folia:teleport_hold_ticket", Long::compareTo);
+     public static final TicketType REGION_SCHEDULER_API_HOLD = register("folia:region_scheduler_api_hold", 0L, FLAG_LOADING | FLAG_SIMULATION);
+     // Folia end - region threading
++    public static final TicketType REGION_PROFILING_HOLD = register("canvas:region_profiler_hold", NO_TIMEOUT, FLAG_LOADING | FLAG_SIMULATION | FLAG_KEEP_DIMENSION_ACTIVE); // Canvas - region threading
+ 
+     private static TicketType register(String name, long timeout, @TicketType.Flags int flags) {
+         return Registry.register(BuiltInRegistries.TICKET_TYPE, name, new TicketType(timeout, flags));
+diff --git a/net/minecraft/server/players/PlayerList.java b/net/minecraft/server/players/PlayerList.java
+index 5dc8b32e943d52ab90c4b461eb24ad5f3ebadb05..b090a3f6b2a4bbd76e3cb8a0695cd644f00ab1fc 100644
+--- a/net/minecraft/server/players/PlayerList.java
++++ b/net/minecraft/server/players/PlayerList.java
+@@ -1047,7 +1047,7 @@ public abstract class PlayerList {
+         io.papermc.paper.util.MCUtil.ensureMain("Save Players" , () -> { // Paper - Ensure main
+         int numSaved = 0;
+         final long now = System.nanoTime(); // Folia - region threading
+-        long timeInterval = (long)interval * io.papermc.paper.threadedregions.TickRegionScheduler.TIME_BETWEEN_TICKS; // Folia - region threading
++        long timeInterval = (long)interval * io.papermc.paper.threadedregions.TickRegionScheduler.getTimeBetweenTicks(); // Folia - region threading // Canvas - region threading
+         for (final ServerPlayer player : this.players) { // Folia - region threading
+             // Folia start - region threading
+             if (!ca.spottedleaf.moonrise.common.util.TickThread.isTickThreadFor(player)) {
