@@ -1,7 +1,7 @@
 # Patch remapping
 
 This branch is showcasing the remapping process. This is not for general use. It
-requires special steps and special set up. Follow the instructions in this readme, don't ask for help if you haven't
+requires special steps and special setup. Follow the instructions in this readme, don't ask for help if you haven't
 read this entire readme and followed all of these steps.
 
 Remapping patches requires knowledge of how to fix issues when patches don't or can't apply correctly. Patches not
@@ -11,15 +11,18 @@ yourself. This is identical to any other upstream update.
 ### Setup
 -----
 
-This repo contains a mappings file (mojang+parchment -> mojang unobf) that will be used during the patch remapping.
+This branch contains a mappings file (`mojang+parchment -> mojang unobf`) that will be used during patch remapping by default.
 
 > [!WARNING]
 > Weaver only supports `Tiny` v1/v2 mappings for remapping.
+>
 > Additionally, by default the simple remapping type in Mercury is used by Weaver.
-> If your mappings file contain changes to class names/packages, append the `--no-simple-remap` flag to the remap task.
+> If your mappings file contains changes to class names/packages, append the `--no-simple-remap` flag to the remap task.
 
+Should you wish to remap to/from different mappings, first ensure that the namespaces match `mojang -> unobf`, after this, place the mappings file, that should be used while remapping under `build-data`, replacing the current file under the name of `remap-mappings.tiny`
 
-Should you wish to remap to/from different mappings, place the mappings file, that should be used while remapping under `build-data` under the name of `remap-mappings.tiny`
+> [!TIP]
+> The directories below, such as `0001`, `0002` and so on, refer to subdirectories under the `unmapped` directory.
 
 
 If your repo contains any patches that shouldn't be remapped but are important for apply (such as generated additional upstreams) it is important to place them under `0001`.
@@ -40,7 +43,7 @@ For example:
 ### Pre-remapping
 -------------
 
-The patch remap task has does not support remapping non-git and file patches.
+The patch remap task does not support remapping non-git and file patches.
 Before you start trying to remap source patches, make sure to export them as a single feature patch.
 This can be done by modifying the task's `baseRef` to start at `basepatches`. Example can be found in the root `build.gradle.kts` of this repo.
 
@@ -55,23 +58,24 @@ You can later apply the patch as a `feature` and squash it into the `file` tag t
 ### Remapping
 ---------
 
-To start remapping patches, run the `remapPatches` task:
+To start remapping patches, run the `remapMinecraftPatches` task:
 
 ```shell
 ./gradlew remapMinecraftPatches
 ```
 
-This can take a very long time, hours even, as patch remapping is a very complex and CPU \& disk intensive task. How long
+This can take a very long time, hours even, as patch remapping is a very complex and CPU & disk intensive task. How long
 it takes depends entirely on how many patches there are to be remapped, and how powerful your computer is.
 
 
 That said, while you may need to walk away during the process, the remapping process does require some amount of
 hands-on work to get it to complete. If you leave for a while and come back to a patch failure, you'll need to fix the
-issue and restart paperweight to pick up from where it left off, explained below.
+issue and restart weaver to pick up from where it left off, explained below.
 
 ### Fixing patch application issues
 
-It is likely that patch remapping will succeed first try. 
+Patch remapping will usually succeed first try, but depending on the mappings you use it can be more prone to failure.
+
 Should the patch application fail, it is caused by your patches failing one way or another due
 to minor differences in tooling, setup, etc. Again, it is your responsibility to handle patch application issues as they
 come up just like any other upstream update.
@@ -87,7 +91,7 @@ There are a variety of files and directories that weaver uses during patch remap
 need to worry about. This is the directory where patches are applied, and code is remapped.
 
 ```
-<project\_root>/.gradle/caches/paperweight/patch-remap-input
+<server_project>/.gradle/caches/paperweight/patch-remap-input
 ```
 
 That directory contains what would be the `src/minecraft/java` directory during the patch remapping process.
