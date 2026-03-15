@@ -5,7 +5,7 @@ Subject: [PATCH] Purpur Ender Chest 6 Rows Config
 
 
 diff --git a/net/minecraft/server/players/PlayerList.java b/net/minecraft/server/players/PlayerList.java
-index 34a60fb77a178ace8c5d6a7ea225c5bf23d0e55d..5dc8b32e943d52ab90c4b461eb24ad5f3ebadb05 100644
+index 5fda54577b7c54f793f072b4d9b09747d8448d66..92cd4c3c619b2ecd719a01edcf5b2b2347fbbcfa 100644
 --- a/net/minecraft/server/players/PlayerList.java
 +++ b/net/minecraft/server/players/PlayerList.java
 @@ -947,6 +947,27 @@ public abstract class PlayerList {
@@ -37,7 +37,7 @@ index 34a60fb77a178ace8c5d6a7ea225c5bf23d0e55d..5dc8b32e943d52ab90c4b461eb24ad5f
  
      // Paper start - whitelist verify event / login event
 diff --git a/net/minecraft/world/entity/player/Player.java b/net/minecraft/world/entity/player/Player.java
-index aaf11cc36e1d590d0daef38f90f101ba1faa908d..04eafee457bd84c3c7505f5a1b5f1aad32918259 100644
+index bf9b97788909875bf6b12f24987783e18f0af2e1..0b92a9e897336baa7c17976788c08555ecc34997 100644
 --- a/net/minecraft/world/entity/player/Player.java
 +++ b/net/minecraft/world/entity/player/Player.java
 @@ -179,6 +179,7 @@ public abstract class Player extends Avatar implements ContainerUser {
@@ -49,7 +49,7 @@ index aaf11cc36e1d590d0daef38f90f101ba1faa908d..04eafee457bd84c3c7505f5a1b5f1aad
      // CraftBukkit start
      public boolean fauxSleeping;
 diff --git a/net/minecraft/world/inventory/ChestMenu.java b/net/minecraft/world/inventory/ChestMenu.java
-index caba137a2582f28de96b12c0b576eaac5b0d8071..a10139c9c40372012f8f0d57ce920e0f39bd0f20 100644
+index 72bde309c917448edc8f12b43348c4dcf7c8b117..68b406cdcd1571314d2f0ee53b0e78ddd1c4664e 100644
 --- a/net/minecraft/world/inventory/ChestMenu.java
 +++ b/net/minecraft/world/inventory/ChestMenu.java
 @@ -66,10 +66,30 @@ public class ChestMenu extends AbstractContainerMenu {
@@ -84,7 +84,7 @@ index caba137a2582f28de96b12c0b576eaac5b0d8071..a10139c9c40372012f8f0d57ce920e0f
          return new ChestMenu(MenuType.GENERIC_9x6, containerId, inventory, container, 6);
      }
 diff --git a/net/minecraft/world/inventory/PlayerEnderChestContainer.java b/net/minecraft/world/inventory/PlayerEnderChestContainer.java
-index 9749909b8253b432bb2f7fba2cd8ff17a8579b30..9fef1faf4e6eb148d1b49426373de9614078d481 100644
+index 401b39d89cc485f6c237a8b7035690ece74eecfd..21c2472545d2fb0405e6582e6433986618e63569 100644
 --- a/net/minecraft/world/inventory/PlayerEnderChestContainer.java
 +++ b/net/minecraft/world/inventory/PlayerEnderChestContainer.java
 @@ -26,11 +26,18 @@ public class PlayerEnderChestContainer extends SimpleContainer {
@@ -104,11 +104,11 @@ index 9749909b8253b432bb2f7fba2cd8ff17a8579b30..9fef1faf4e6eb148d1b49426373de961
 +    }
 +
 +    // Purpur end - Barrels and enderchests 6 rows
-     public void setActiveChest(EnderChestBlockEntity enderChestBlockEntity) {
-         this.activeChest = enderChestBlockEntity;
+     public void setActiveChest(EnderChestBlockEntity activeChest) {
+         this.activeChest = activeChest;
      }
 diff --git a/net/minecraft/world/level/block/EnderChestBlock.java b/net/minecraft/world/level/block/EnderChestBlock.java
-index 2261e8f1d4e1ad0075b63305d9a00849cfa1b039..67b2f092fd0a24b2abc5abc17bd5c2e7ac01b0a9 100644
+index b0442a21f3bc41495a2cf34a407ed24bd30b93dc..610359a3d266eed124e682b52ac5cc7a61e355c6 100644
 --- a/net/minecraft/world/level/block/EnderChestBlock.java
 +++ b/net/minecraft/world/level/block/EnderChestBlock.java
 @@ -85,8 +85,8 @@ public class EnderChestBlock extends AbstractChestBlock<EnderChestBlockEntity> i
@@ -156,10 +156,10 @@ index 2261e8f1d4e1ad0075b63305d9a00849cfa1b039..67b2f092fd0a24b2abc5abc17bd5c2e7
 +
 +    // Purpur end - Barrels and enderchests 6 rows
      @Override
-     public BlockEntity newBlockEntity(BlockPos pos, BlockState worldPosition) {
-         return new EnderChestBlockEntity(pos, worldPosition);
+     public BlockEntity newBlockEntity(BlockPos worldPosition, BlockState blockState) {
+         return new EnderChestBlockEntity(worldPosition, blockState);
 diff --git a/net/minecraft/world/level/block/entity/BarrelBlockEntity.java b/net/minecraft/world/level/block/entity/BarrelBlockEntity.java
-index e2d4420c4e69d9ed238f9d758f1bac245142ce92..5cbbe99d7340b219da5a42e02a5ee25643e52269 100644
+index 434f67e6dc3f2644ac79edebcf089c03249445a6..c3f8b28fbfae2c3c5e382e2e18faf2da35d36d8e 100644
 --- a/net/minecraft/world/level/block/entity/BarrelBlockEntity.java
 +++ b/net/minecraft/world/level/block/entity/BarrelBlockEntity.java
 @@ -59,7 +59,17 @@ public class BarrelBlockEntity extends RandomizableContainerBlockEntity {
@@ -180,7 +180,7 @@ index e2d4420c4e69d9ed238f9d758f1bac245142ce92..5cbbe99d7340b219da5a42e02a5ee256
 +    // Purpur end - Barrels and enderchests 6 rows
      public final ContainerOpenersCounter openersCounter = new ContainerOpenersCounter() {
          @Override
-         protected void onOpen(Level level, BlockPos level, BlockState pos) {
+         protected void onOpen(Level level, BlockPos pos, BlockState blockState) {
 @@ -111,7 +121,16 @@ public class BarrelBlockEntity extends RandomizableContainerBlockEntity {
  
      @Override
@@ -202,16 +202,16 @@ index e2d4420c4e69d9ed238f9d758f1bac245142ce92..5cbbe99d7340b219da5a42e02a5ee256
 @@ -131,7 +150,16 @@ public class BarrelBlockEntity extends RandomizableContainerBlockEntity {
  
      @Override
-     protected AbstractContainerMenu createMenu(int id, Inventory containerId) {
--        return ChestMenu.threeRows(id, containerId, this);
+     protected AbstractContainerMenu createMenu(int containerId, Inventory inventory) {
+-        return ChestMenu.threeRows(containerId, inventory, this);
 +        // Purpur start - Barrels and enderchests 6 rows
 +        return switch (io.canvasmc.canvas.Config.INSTANCE.containers.barrelRows) {
-+            case 6 -> ChestMenu.sixRows(id, containerId, this);
-+            case 5 -> ChestMenu.fiveRows(id, containerId, this);
-+            case 4 -> ChestMenu.fourRows(id, containerId, this);
-+            case 2 -> ChestMenu.twoRows(id, containerId, this);
-+            case 1 -> ChestMenu.oneRow(id, containerId, this);
-+            default -> ChestMenu.threeRows(id, containerId, this);
++            case 6 -> ChestMenu.sixRows(containerId, inventory, this);
++            case 5 -> ChestMenu.fiveRows(containerId, inventory, this);
++            case 4 -> ChestMenu.fourRows(containerId, inventory, this);
++            case 2 -> ChestMenu.twoRows(containerId, inventory, this);
++            case 1 -> ChestMenu.oneRow(containerId, inventory, this);
++            default -> ChestMenu.threeRows(containerId, inventory, this);
 +        };
 +        // Purpur end - Barrels and enderchests 6 rows
      }

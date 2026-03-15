@@ -41,7 +41,7 @@ index b05a8f5f1da64d8b821a1423e865bdb4bc764694..c2cfdbd6b26eb427ce4b3d4693976ca3
  
      public <FT, FR> Type<?> getSetType(final OpticFinder<FT> optic, final Type<FR> newType) {
 diff --git a/com/mojang/math/Transformation.java b/com/mojang/math/Transformation.java
-index 6fc37254e526270f35225af937d0f5dadc2da9b4..c0e302143e0564682fdcf90027f189e17afe455c 100644
+index ae382865183e522051decb3398744f0758165d49..438e753548bea44b6b780ab9763ab38132fca61c 100644
 --- a/com/mojang/math/Transformation.java
 +++ b/com/mojang/math/Transformation.java
 @@ -50,6 +50,7 @@ public final class Transformation {
@@ -51,30 +51,30 @@ index 6fc37254e526270f35225af937d0f5dadc2da9b4..c0e302143e0564682fdcf90027f189e1
 +        this.ensureDecomposed(); // Canvas - replace moonrise executor
      }
  
-     public Transformation(@Nullable Vector3fc translation, @Nullable Quaternionfc translation, @Nullable Vector3fc leftRotation, @Nullable Quaternionfc scale) {
+     public Transformation(@Nullable Vector3fc translation, @Nullable Quaternionfc leftRotation, @Nullable Vector3fc scale, @Nullable Quaternionfc rightRotation) {
 @@ -59,6 +60,7 @@ public final class Transformation {
-         this.scale = (Vector3fc)(leftRotation != null ? leftRotation : new Vector3f(1.0F, 1.0F, 1.0F));
-         this.rightRotation = (Quaternionfc)(scale != null ? scale : new Quaternionf());
+         this.scale = (Vector3fc)(scale != null ? scale : new Vector3f(1.0F, 1.0F, 1.0F));
+         this.rightRotation = (Quaternionfc)(rightRotation != null ? rightRotation : new Quaternionf());
          this.decomposed = true;
 +        this.ensureDecomposed(); // Canvas - replace moonrise executor
      }
  
      public static Transformation identity() {
 diff --git a/net/minecraft/world/level/levelgen/feature/stateproviders/RandomizedIntStateProvider.java b/net/minecraft/world/level/levelgen/feature/stateproviders/RandomizedIntStateProvider.java
-index 2a5a23bd9b367a5d0378f5a37047e533b127377c..c8e24f7d61d4483c2c497febf6bec94c54f308ff 100644
+index 13c9f67e1e78f7a2782f3ca8f0ad607114a688a9..304172efd3d1b935cf1264679fcf2555e225ce8c 100644
 --- a/net/minecraft/world/level/levelgen/feature/stateproviders/RandomizedIntStateProvider.java
 +++ b/net/minecraft/world/level/levelgen/feature/stateproviders/RandomizedIntStateProvider.java
 @@ -54,17 +54,20 @@ public class RandomizedIntStateProvider extends BlockStateProvider {
  
      @Override
-     public BlockState getState(RandomSource random, BlockPos random) {
--        BlockState state = this.source.getState(random, random);
+     public BlockState getState(RandomSource random, BlockPos pos) {
+-        BlockState state = this.source.getState(random, pos);
 -        if (this.property == null || !state.hasProperty(this.property)) {
 -            IntegerProperty integerProperty = findProperty(state, this.propertyName);
 -            if (integerProperty == null) {
 -                return state;
 +        // Canvas start - replace moonrise executor
-+        BlockState blockState = this.source.getState(random, random);
++        BlockState blockState = this.source.getState(random, pos);
 +        IntegerProperty propertyLocal = this.property; // used as cache only
 +        if (propertyLocal == null || !blockState.hasProperty(propertyLocal)) {
 +            IntegerProperty intProperty = findProperty(blockState, this.propertyName);
@@ -93,7 +93,7 @@ index 2a5a23bd9b367a5d0378f5a37047e533b127377c..c8e24f7d61d4483c2c497febf6bec94c
  
      private static @Nullable IntegerProperty findProperty(BlockState source, String propertyName) {
 diff --git a/net/minecraft/world/level/levelgen/structure/ScatteredFeaturePiece.java b/net/minecraft/world/level/levelgen/structure/ScatteredFeaturePiece.java
-index 36c7ba50dc60bc887ec806a67ca35775c250ae24..0211c560b82c027c3ffa6e43e9170f10333b3a85 100644
+index 32e9f1fbf07a15f0525c456bc8bedd020063359f..d0b63cf2ff3611ebebae2ee433d1ce3b834d0055 100644
 --- a/net/minecraft/world/level/levelgen/structure/ScatteredFeaturePiece.java
 +++ b/net/minecraft/world/level/levelgen/structure/ScatteredFeaturePiece.java
 @@ -12,7 +12,7 @@ public abstract class ScatteredFeaturePiece extends StructurePiece {
@@ -103,10 +103,10 @@ index 36c7ba50dc60bc887ec806a67ca35775c250ae24..0211c560b82c027c3ffa6e43e9170f10
 -    protected int heightPosition = -1;
 +    protected volatile int heightPosition = -1; // Canvas - replace moonrise executor
  
-     protected ScatteredFeaturePiece(StructurePieceType type, int type, int west, int floor, int north, int width, int height, Direction depth) {
-         super(type, 0, StructurePiece.makeBoundingBox(type, west, floor, depth, north, width, height));
+     protected ScatteredFeaturePiece(StructurePieceType type, int west, int floor, int north, int width, int height, int depth, Direction direction) {
+         super(type, 0, StructurePiece.makeBoundingBox(west, floor, north, direction, width, height, depth));
 diff --git a/net/minecraft/world/level/levelgen/structure/structures/DesertPyramidPiece.java b/net/minecraft/world/level/levelgen/structure/structures/DesertPyramidPiece.java
-index 75290abe25e57b127a96b3db1c37c9cbb158d905..26652126a6adf68d567275e4cbd0583f614be754 100644
+index ebf210f2729e3b59c81a28ac1d9e133db55ef777..bf3b7f165c5d3e6e8c275a2f85d43fa5f969aaf0 100644
 --- a/net/minecraft/world/level/levelgen/structure/structures/DesertPyramidPiece.java
 +++ b/net/minecraft/world/level/levelgen/structure/structures/DesertPyramidPiece.java
 @@ -23,29 +23,44 @@ import net.minecraft.world.level.storage.loot.BuiltInLootTables;
@@ -128,8 +128,8 @@ index 75290abe25e57b127a96b3db1c37c9cbb158d905..26652126a6adf68d567275e4cbd0583f
 +    }
 +    // Canvas end - replace moonrise executor
  
-     public DesertPyramidPiece(RandomSource random, int random, int west) {
-         super(StructurePieceType.DESERT_PYRAMID_PIECE, random, 64, west, 21, 15, 21, getRandomHorizontalDirection(random));
+     public DesertPyramidPiece(RandomSource random, int west, int north) {
+         super(StructurePieceType.DESERT_PYRAMID_PIECE, west, 64, north, 21, 15, 21, getRandomHorizontalDirection(random));
 +        onInit(); // Canvas - replace moonrise executor
      }
  
@@ -149,23 +149,23 @@ index 75290abe25e57b127a96b3db1c37c9cbb158d905..26652126a6adf68d567275e4cbd0583f
      }
  
      @Override
-     protected void addAdditionalSaveData(StructurePieceSerializationContext context, CompoundTag context) {
-         super.addAdditionalSaveData(context, context);
--        context.putBoolean("hasPlacedChest0", this.hasPlacedChest[0]);
--        context.putBoolean("hasPlacedChest1", this.hasPlacedChest[1]);
--        context.putBoolean("hasPlacedChest2", this.hasPlacedChest[2]);
--        context.putBoolean("hasPlacedChest3", this.hasPlacedChest[3]);
+     protected void addAdditionalSaveData(StructurePieceSerializationContext context, CompoundTag tag) {
+         super.addAdditionalSaveData(context, tag);
+-        tag.putBoolean("hasPlacedChest0", this.hasPlacedChest[0]);
+-        tag.putBoolean("hasPlacedChest1", this.hasPlacedChest[1]);
+-        tag.putBoolean("hasPlacedChest2", this.hasPlacedChest[2]);
+-        tag.putBoolean("hasPlacedChest3", this.hasPlacedChest[3]);
 +        // Canvas start - replace moonrise executor
-+        context.putBoolean("hasPlacedChest0", this.hasPlacedChestAtomic.get(0));
-+        context.putBoolean("hasPlacedChest1", this.hasPlacedChestAtomic.get(1));
-+        context.putBoolean("hasPlacedChest2", this.hasPlacedChestAtomic.get(2));
-+        context.putBoolean("hasPlacedChest3", this.hasPlacedChestAtomic.get(3));
++        tag.putBoolean("hasPlacedChest0", this.hasPlacedChestAtomic.get(0));
++        tag.putBoolean("hasPlacedChest1", this.hasPlacedChestAtomic.get(1));
++        tag.putBoolean("hasPlacedChest2", this.hasPlacedChestAtomic.get(2));
++        tag.putBoolean("hasPlacedChest3", this.hasPlacedChestAtomic.get(3));
 +        // Canvas end - replace moonrise executor
      }
  
      @Override
 @@ -287,12 +302,12 @@ public class DesertPyramidPiece extends ScatteredFeaturePiece {
-             this.placeBlock(level, Blocks.CUT_SANDSTONE.defaultBlockState(), 10, -11, 13, random);
+             this.placeBlock(level, Blocks.CUT_SANDSTONE.defaultBlockState(), 10, -11, 13, chunkBB);
  
              for (Direction direction : Direction.Plane.HORIZONTAL) {
 -                if (!this.hasPlacedChest[direction.get2DDataValue()]) {
@@ -174,14 +174,14 @@ index 75290abe25e57b127a96b3db1c37c9cbb158d905..26652126a6adf68d567275e4cbd0583f
                      int i5 = direction.getStepZ() * 2;
 -                    this.hasPlacedChest[direction.get2DDataValue()] = this.createChest(
 +                    this.hasPlacedChestAtomic.set(direction.get2DDataValue(), this.createChest( // Canvas - replace moonrise executor
-                         level, random, generator, 10 + i4, -11, 10 + i5, BuiltInLootTables.DESERT_PYRAMID
+                         level, chunkBB, random, 10 + i4, -11, 10 + i5, BuiltInLootTables.DESERT_PYRAMID
 -                    );
 +                    )); // Canvas - replace moonrise executor
                  }
              }
  
 @@ -419,7 +434,7 @@ public class DesertPyramidPiece extends ScatteredFeaturePiece {
-         this.randomCollapsedRoofPos = new BlockPos(this.getWorldX(i1, randomInt), this.getWorldY(x0), this.getWorldZ(i1, randomInt));
+         this.randomCollapsedRoofPos = new BlockPos(this.getWorldX(i1, randomInt), this.getWorldY(y0), this.getWorldZ(i1, randomInt));
      }
  
 -    public List<BlockPos> getPotentialSuspiciousSandWorldPositions() {
@@ -190,7 +190,7 @@ index 75290abe25e57b127a96b3db1c37c9cbb158d905..26652126a6adf68d567275e4cbd0583f
      }
  
 diff --git a/net/minecraft/world/level/levelgen/structure/structures/JungleTemplePiece.java b/net/minecraft/world/level/levelgen/structure/structures/JungleTemplePiece.java
-index 6bc6981f990381ebc645b5fe25dc081bee38a70c..68133f2cec3de8135648e0349af94b39dc53f02e 100644
+index bc1c8f6ec4d01536c7eddfbdeb28e12e12913422..0a7238ddeabf978c81f41df653ef61387554fd25 100644
 --- a/net/minecraft/world/level/levelgen/structure/structures/JungleTemplePiece.java
 +++ b/net/minecraft/world/level/levelgen/structure/structures/JungleTemplePiece.java
 @@ -30,10 +30,12 @@ import net.minecraft.world.level.storage.loot.BuiltInLootTables;
@@ -209,7 +209,7 @@ index 6bc6981f990381ebc645b5fe25dc081bee38a70c..68133f2cec3de8135648e0349af94b39
 +    // Canvas end - replace moonrise executor
      private static final JungleTemplePiece.MossStoneSelector STONE_SELECTOR = new JungleTemplePiece.MossStoneSelector();
  
-     public JungleTemplePiece(RandomSource random, int random, int west) {
+     public JungleTemplePiece(RandomSource random, int west, int north) {
 @@ -42,19 +44,23 @@ public class JungleTemplePiece extends ScatteredFeaturePiece {
  
      public JungleTemplePiece(CompoundTag tag) {
@@ -227,72 +227,72 @@ index 6bc6981f990381ebc645b5fe25dc081bee38a70c..68133f2cec3de8135648e0349af94b39
      }
  
      @Override
-     protected void addAdditionalSaveData(StructurePieceSerializationContext context, CompoundTag context) {
-         super.addAdditionalSaveData(context, context);
--        context.putBoolean("placedMainChest", this.placedMainChest);
--        context.putBoolean("placedHiddenChest", this.placedHiddenChest);
--        context.putBoolean("placedTrap1", this.placedTrap1);
--        context.putBoolean("placedTrap2", this.placedTrap2);
+     protected void addAdditionalSaveData(StructurePieceSerializationContext context, CompoundTag tag) {
+         super.addAdditionalSaveData(context, tag);
+-        tag.putBoolean("placedMainChest", this.placedMainChest);
+-        tag.putBoolean("placedHiddenChest", this.placedHiddenChest);
+-        tag.putBoolean("placedTrap1", this.placedTrap1);
+-        tag.putBoolean("placedTrap2", this.placedTrap2);
 +        // Canvas start - replace moonrise executor
-+        context.putBoolean("placedMainChest", this.placedMainChest.get());
-+        context.putBoolean("placedHiddenChest", this.placedHiddenChest.get());
-+        context.putBoolean("placedTrap1", this.placedTrap1.get());
-+        context.putBoolean("placedTrap2", this.placedTrap2.get());
++        tag.putBoolean("placedMainChest", this.placedMainChest.get());
++        tag.putBoolean("placedHiddenChest", this.placedHiddenChest.get());
++        tag.putBoolean("placedTrap1", this.placedTrap1.get());
++        tag.putBoolean("placedTrap2", this.placedTrap2.get());
 +        // Canvas end - replace moonrise executor
      }
  
      @Override
 @@ -236,8 +242,10 @@ public class JungleTemplePiece extends ScatteredFeaturePiece {
-                 random
+                 chunkBB
              );
-             this.placeBlock(level, Blocks.MOSSY_COBBLESTONE.defaultBlockState(), 3, -3, 1, random);
+             this.placeBlock(level, Blocks.MOSSY_COBBLESTONE.defaultBlockState(), 3, -3, 1, chunkBB);
 -            if (!this.placedTrap1) {
--                this.placedTrap1 = this.createDispenser(level, random, generator, 3, -2, 1, Direction.NORTH, BuiltInLootTables.JUNGLE_TEMPLE_DISPENSER);
+-                this.placedTrap1 = this.createDispenser(level, chunkBB, random, 3, -2, 1, Direction.NORTH, BuiltInLootTables.JUNGLE_TEMPLE_DISPENSER);
 +            // Canvas start - replace moonrise executor
 +            if (!this.placedTrap1.get()) {
-+                this.placedTrap1.set(this.createDispenser(level, random, generator, 3, -2, 1, Direction.NORTH, BuiltInLootTables.JUNGLE_TEMPLE_DISPENSER));
++                this.placedTrap1.set(this.createDispenser(level, chunkBB, random, 3, -2, 1, Direction.NORTH, BuiltInLootTables.JUNGLE_TEMPLE_DISPENSER));
 +            // Canvas end - replace moonrise executor
              }
  
-             this.placeBlock(level, Blocks.VINE.defaultBlockState().setValue(VineBlock.SOUTH, true), 3, -2, 2, random);
+             this.placeBlock(level, Blocks.VINE.defaultBlockState().setValue(VineBlock.SOUTH, true), 3, -2, 2, chunkBB);
 @@ -328,14 +336,18 @@ public class JungleTemplePiece extends ScatteredFeaturePiece {
              );
-             this.placeBlock(level, Blocks.MOSSY_COBBLESTONE.defaultBlockState(), 9, -3, 4, random);
-             this.placeBlock(level, blockState4, 9, -2, 4, random);
+             this.placeBlock(level, Blocks.MOSSY_COBBLESTONE.defaultBlockState(), 9, -3, 4, chunkBB);
+             this.placeBlock(level, blockState4, 9, -2, 4, chunkBB);
 -            if (!this.placedTrap2) {
--                this.placedTrap2 = this.createDispenser(level, random, generator, 9, -2, 3, Direction.WEST, BuiltInLootTables.JUNGLE_TEMPLE_DISPENSER);
+-                this.placedTrap2 = this.createDispenser(level, chunkBB, random, 9, -2, 3, Direction.WEST, BuiltInLootTables.JUNGLE_TEMPLE_DISPENSER);
 +            // Canvas start - replace moonrise executor
 +            if (!this.placedTrap2.get()) {
-+                this.placedTrap2.set(this.createDispenser(level, random, generator, 9, -2, 3, Direction.WEST, BuiltInLootTables.JUNGLE_TEMPLE_DISPENSER));
++                this.placedTrap2.set(this.createDispenser(level, chunkBB, random, 9, -2, 3, Direction.WEST, BuiltInLootTables.JUNGLE_TEMPLE_DISPENSER));
 +            // Canvas end - replace moonrise executor
              }
  
-             this.placeBlock(level, Blocks.VINE.defaultBlockState().setValue(VineBlock.EAST, true), 8, -1, 3, random);
-             this.placeBlock(level, Blocks.VINE.defaultBlockState().setValue(VineBlock.EAST, true), 8, -2, 3, random);
+             this.placeBlock(level, Blocks.VINE.defaultBlockState().setValue(VineBlock.EAST, true), 8, -1, 3, chunkBB);
+             this.placeBlock(level, Blocks.VINE.defaultBlockState().setValue(VineBlock.EAST, true), 8, -2, 3, chunkBB);
 -            if (!this.placedMainChest) {
--                this.placedMainChest = this.createChest(level, random, generator, 8, -3, 3, BuiltInLootTables.JUNGLE_TEMPLE);
+-                this.placedMainChest = this.createChest(level, chunkBB, random, 8, -3, 3, BuiltInLootTables.JUNGLE_TEMPLE);
 +            // Canvas start - replace moonrise executor
 +            if (!this.placedMainChest.get()) {
-+                this.placedMainChest.set(this.createChest(level, random, generator, 8, -3, 3, BuiltInLootTables.JUNGLE_TEMPLE));
++                this.placedMainChest.set(this.createChest(level, chunkBB, random, 8, -3, 3, BuiltInLootTables.JUNGLE_TEMPLE));
 +            // Canvas end - replace moonrise executor
              }
  
-             this.placeBlock(level, Blocks.MOSSY_COBBLESTONE.defaultBlockState(), 9, -3, 2, random);
+             this.placeBlock(level, Blocks.MOSSY_COBBLESTONE.defaultBlockState(), 9, -3, 2, chunkBB);
 @@ -378,8 +390,10 @@ public class JungleTemplePiece extends ScatteredFeaturePiece {
-             this.placeBlock(level, Blocks.STICKY_PISTON.defaultBlockState().setValue(PistonBaseBlock.FACING, Direction.WEST), 10, -2, 8, random);
-             this.placeBlock(level, Blocks.STICKY_PISTON.defaultBlockState().setValue(PistonBaseBlock.FACING, Direction.WEST), 10, -1, 8, random);
-             this.placeBlock(level, Blocks.REPEATER.defaultBlockState().setValue(RepeaterBlock.FACING, Direction.NORTH), 10, -2, 10, random);
+             this.placeBlock(level, Blocks.STICKY_PISTON.defaultBlockState().setValue(PistonBaseBlock.FACING, Direction.WEST), 10, -2, 8, chunkBB);
+             this.placeBlock(level, Blocks.STICKY_PISTON.defaultBlockState().setValue(PistonBaseBlock.FACING, Direction.WEST), 10, -1, 8, chunkBB);
+             this.placeBlock(level, Blocks.REPEATER.defaultBlockState().setValue(RepeaterBlock.FACING, Direction.NORTH), 10, -2, 10, chunkBB);
 -            if (!this.placedHiddenChest) {
--                this.placedHiddenChest = this.createChest(level, random, generator, 9, -3, 10, BuiltInLootTables.JUNGLE_TEMPLE);
+-                this.placedHiddenChest = this.createChest(level, chunkBB, random, 9, -3, 10, BuiltInLootTables.JUNGLE_TEMPLE);
 +            // Canvas start - replace moonrise executor
 +            if (!this.placedHiddenChest.get()) {
-+                this.placedHiddenChest.set(this.createChest(level, random, generator, 9, -3, 10, BuiltInLootTables.JUNGLE_TEMPLE));
++                this.placedHiddenChest.set(this.createChest(level, chunkBB, random, 9, -3, 10, BuiltInLootTables.JUNGLE_TEMPLE));
 +            // Canvas end - replace moonrise executor
              }
          }
      }
 diff --git a/net/minecraft/world/level/levelgen/structure/structures/MineshaftPieces.java b/net/minecraft/world/level/levelgen/structure/structures/MineshaftPieces.java
-index 5f87252440600fe695c27b5d53b801febd639909..c47aa5e442836cd28f5643b5f8fffd6b1b60a651 100644
+index 3b351a1e15b693cbb3b398378797813c6e5d86c9..00c8683ad73bfac06d7d183ee1ff94df7ce6622e 100644
 --- a/net/minecraft/world/level/levelgen/structure/structures/MineshaftPieces.java
 +++ b/net/minecraft/world/level/levelgen/structure/structures/MineshaftPieces.java
 @@ -91,7 +91,7 @@ public class MineshaftPieces {
@@ -311,10 +311,10 @@ index 5f87252440600fe695c27b5d53b801febd639909..c47aa5e442836cd28f5643b5f8fffd6b
 -        private final List<BoundingBox> childEntranceBoxes = Lists.newLinkedList();
 +        private final List<BoundingBox> childEntranceBoxes = java.util.Collections.synchronizedList(Lists.newLinkedList()); // Canvas - replace moonrise executor
  
-         public MineShaftRoom(int genDepth, RandomSource genDepth, int random, int west, MineshaftStructure.Type north) {
+         public MineShaftRoom(int genDepth, RandomSource random, int west, int north, MineshaftStructure.Type type) {
              super(
 diff --git a/net/minecraft/world/level/levelgen/structure/structures/NetherFortressPieces.java b/net/minecraft/world/level/levelgen/structure/structures/NetherFortressPieces.java
-index 5139b927f3d1c097de151a8155357dd66b10049c..d09d87222b28b1a7aa2a1303104785b1d35ad06d 100644
+index 7eaf673f7d212a0ef0d3e25d0365fcdbd84cd963..71fbb01641bf584e0a8edadf06d71dd27ff8ca83 100644
 --- a/net/minecraft/world/level/levelgen/structure/structures/NetherFortressPieces.java
 +++ b/net/minecraft/world/level/levelgen/structure/structures/NetherFortressPieces.java
 @@ -647,7 +647,7 @@ public class NetherFortressPieces {
@@ -324,8 +324,8 @@ index 5139b927f3d1c097de151a8155357dd66b10049c..d09d87222b28b1a7aa2a1303104785b1
 -        private boolean isNeedingChest;
 +        private volatile boolean isNeedingChest; // Canvas - replace moonrise executor
  
-         public CastleSmallCorridorLeftTurnPiece(int genDepth, RandomSource genDepth, BoundingBox random, Direction boundingBox) {
-             super(StructurePieceType.NETHER_FORTRESS_CASTLE_SMALL_CORRIDOR_LEFT_TURN, genDepth, random);
+         public CastleSmallCorridorLeftTurnPiece(int genDepth, RandomSource random, BoundingBox boundingBox, Direction direction) {
+             super(StructurePieceType.NETHER_FORTRESS_CASTLE_SMALL_CORRIDOR_LEFT_TURN, genDepth, boundingBox);
 @@ -777,7 +777,7 @@ public class NetherFortressPieces {
          private static final int WIDTH = 5;
          private static final int HEIGHT = 7;
@@ -333,8 +333,8 @@ index 5139b927f3d1c097de151a8155357dd66b10049c..d09d87222b28b1a7aa2a1303104785b1
 -        private boolean isNeedingChest;
 +        private volatile boolean isNeedingChest; // Canvas - replace moonrise executor
  
-         public CastleSmallCorridorRightTurnPiece(int genDepth, RandomSource genDepth, BoundingBox random, Direction boundingBox) {
-             super(StructurePieceType.NETHER_FORTRESS_CASTLE_SMALL_CORRIDOR_RIGHT_TURN, genDepth, random);
+         public CastleSmallCorridorRightTurnPiece(int genDepth, RandomSource random, BoundingBox boundingBox, Direction direction) {
+             super(StructurePieceType.NETHER_FORTRESS_CASTLE_SMALL_CORRIDOR_RIGHT_TURN, genDepth, boundingBox);
 @@ -1014,7 +1014,7 @@ public class NetherFortressPieces {
          private static final int WIDTH = 7;
          private static final int HEIGHT = 8;
@@ -342,35 +342,35 @@ index 5139b927f3d1c097de151a8155357dd66b10049c..d09d87222b28b1a7aa2a1303104785b1
 -        private boolean hasPlacedSpawner;
 +        private volatile boolean hasPlacedSpawner; // Canvas - replace moonrise executor
  
-         public MonsterThrone(int genDepth, BoundingBox genDepth, Direction boundingBox) {
-             super(StructurePieceType.NETHER_FORTRESS_MONSTER_THRONE, genDepth, genDepth);
+         public MonsterThrone(int genDepth, BoundingBox boundingBox, Direction direction) {
+             super(StructurePieceType.NETHER_FORTRESS_MONSTER_THRONE, genDepth, boundingBox);
 @@ -1102,7 +1102,7 @@ public class NetherFortressPieces {
          }
      }
  
 -    abstract static class NetherBridgePiece extends StructurePiece {
 +    public abstract static class NetherBridgePiece extends StructurePiece { // Canvas - TODO - at
-         protected NetherBridgePiece(StructurePieceType type, int type, BoundingBox genDepth) {
-             super(type, type, genDepth);
+         protected NetherBridgePiece(StructurePieceType type, int genDepth, BoundingBox boundingBox) {
+             super(type, genDepth, boundingBox);
          }
 @@ -1120,7 +1120,7 @@ public class NetherFortressPieces {
              int i = 0;
  
-             for (NetherFortressPieces.PieceWeight pieceWeight : weights) {
+             for (NetherFortressPieces.PieceWeight pieceWeight : currentPieces) {
 -                if (pieceWeight.maxPlaceCount > 0 && pieceWeight.placeCount < pieceWeight.maxPlaceCount) {
 +                if (pieceWeight.maxPlaceCount > 0 && pieceWeight.placeCount.get() < pieceWeight.maxPlaceCount) { // Canvas - replace moonrise executor
                      flag = true;
                  }
  
 @@ -1160,7 +1160,7 @@ public class NetherFortressPieces {
-                             pieceWeight, currentPieces, structurePieceAccessor, random, footX, footY, footZ, direction
+                             pieceWeight, structurePieceAccessor, random, footX, footY, footZ, direction, depth
                          );
                          if (netherBridgePiece != null) {
 -                            pieceWeight.placeCount++;
 +                            pieceWeight.placeCount.set(pieceWeight.placeCount.get() + 1); // Canvas - replace moonrise executor
                              startPiece.previousPiece = pieceWeight;
                              if (!pieceWeight.isValid()) {
-                                 startPiece.remove(pieceWeight);
+                                 currentPieces.remove(pieceWeight);
 @@ -1392,7 +1392,7 @@ public class NetherFortressPieces {
      static class PieceWeight {
          public final Class<? extends NetherFortressPieces.NetherBridgePiece> pieceClass;
@@ -383,7 +383,7 @@ index 5139b927f3d1c097de151a8155357dd66b10049c..d09d87222b28b1a7aa2a1303104785b1
 @@ -1408,11 +1408,11 @@ public class NetherFortressPieces {
          }
  
-         public boolean doPlace(int genDepth) {
+         public boolean doPlace(int depth) {
 -            return this.maxPlaceCount == 0 || this.placeCount < this.maxPlaceCount;
 +            return this.maxPlaceCount == 0 || this.placeCount.get() < this.maxPlaceCount; // Canvas - replace moonrise executor
          }
@@ -406,8 +406,8 @@ index 5139b927f3d1c097de151a8155357dd66b10049c..d09d87222b28b1a7aa2a1303104785b1
 +        final List<NetherFortressPieces.PieceWeight> availableCastlePieces = java.util.Collections.synchronizedList(new ArrayList<>()); // Canvas - replace moonrise executor
          public final List<StructurePiece> pendingChildren = Lists.newArrayList();
  
-         public StartPiece(RandomSource random, int random, int west) {
-             super(random, west, getRandomHorizontalDirection(random));
+         public StartPiece(RandomSource random, int west, int north) {
+             super(west, north, getRandomHorizontalDirection(random));
  
              for (NetherFortressPieces.PieceWeight pieceWeight : NetherFortressPieces.BRIDGE_PIECE_WEIGHTS) {
 -                pieceWeight.placeCount = 0;
@@ -422,7 +422,7 @@ index 5139b927f3d1c097de151a8155357dd66b10049c..d09d87222b28b1a7aa2a1303104785b1
              }
          }
 diff --git a/net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces.java b/net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces.java
-index 231f3181aba0952942fe5cb56a1b9be6501b7b0f..200d1363c497158925d0569d072039075d120531 100644
+index a17cc0b4c8b40f6be65c6216a3a1df85be1a5abd..b52e47792b6da63fb4fc9770337d3007e258ae8b 100644
 --- a/net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces.java
 +++ b/net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces.java
 @@ -160,8 +160,8 @@ public class OceanMonumentPieces {
@@ -435,7 +435,7 @@ index 231f3181aba0952942fe5cb56a1b9be6501b7b0f..200d1363c497158925d0569d07203907
 +        private volatile OceanMonumentPieces.RoomDefinition coreRoom; // Canvas - replace moonrise executor
          private final List<OceanMonumentPieces.OceanMonumentPiece> childPieces = Lists.newArrayList();
  
-         public MonumentBuilding(RandomSource random, int random, int west, Direction north) {
+         public MonumentBuilding(RandomSource random, int west, int north, Direction direction) {
 @@ -1897,9 +1897,9 @@ public class OceanMonumentPieces {
          final int index;
          final OceanMonumentPieces.RoomDefinition[] connections = new OceanMonumentPieces.RoomDefinition[6];
@@ -447,10 +447,10 @@ index 231f3181aba0952942fe5cb56a1b9be6501b7b0f..200d1363c497158925d0569d07203907
 +        volatile boolean isSource; // Canvas - replace moonrise executor
 +        private volatile int scanIndex; // Canvas - replace moonrise executor
  
-         public RoomDefinition(int index) {
-             this.index = index;
+         public RoomDefinition(int roomIndex) {
+             this.index = roomIndex;
 diff --git a/net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces.java b/net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces.java
-index f7b2fea5704e3b73edda214db4dd11b11142c1b3..8aa090005ada54a5e49642e2aa2a0c22bf384edf 100644
+index 0884edf6089f49d6dcafc0f476f4dad3d1cb55ef..f07aa5a373d3e8c100d4c67570e73d91c670c58f 100644
 --- a/net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces.java
 +++ b/net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces.java
 @@ -66,32 +66,32 @@ public class StrongholdPieces {
@@ -542,8 +542,8 @@ index f7b2fea5704e3b73edda214db4dd11b11142c1b3..8aa090005ada54a5e49642e2aa2a0c22
 -        private boolean hasPlacedChest;
 +        private volatile boolean hasPlacedChest; // Canvas - replace moonrise executor
  
-         public ChestCorridor(int genDepth, RandomSource genDepth, BoundingBox random, Direction boundingBox) {
-             super(StructurePieceType.STRONGHOLD_CHEST_CORRIDOR, genDepth, random);
+         public ChestCorridor(int genDepth, RandomSource random, BoundingBox boundingBox, Direction direction) {
+             super(StructurePieceType.STRONGHOLD_CHEST_CORRIDOR, genDepth, boundingBox);
 @@ -691,7 +691,7 @@ public class StrongholdPieces {
      static class PieceWeight {
          public final Class<? extends StrongholdPieces.StrongholdPiece> pieceClass;
@@ -552,11 +552,11 @@ index f7b2fea5704e3b73edda214db4dd11b11142c1b3..8aa090005ada54a5e49642e2aa2a0c22
 +        public final ThreadLocal<Integer> placeCount = ThreadLocal.withInitial(() -> 0); // Canvas - replace moonrise executor
          public final int maxPlaceCount;
  
-         public PieceWeight(Class<? extends StrongholdPieces.StrongholdPiece> pieceClass, int pieceClass, int weight) {
+         public PieceWeight(Class<? extends StrongholdPieces.StrongholdPiece> pieceClass, int weight, int maxPlaceCount) {
 @@ -701,11 +701,11 @@ public class StrongholdPieces {
          }
  
-         public boolean doPlace(int genDepth) {
+         public boolean doPlace(int depth) {
 -            return this.maxPlaceCount == 0 || this.placeCount < this.maxPlaceCount;
 +            return this.maxPlaceCount == 0 || this.placeCount.get() < this.maxPlaceCount; // Canvas - replace moonrise executor
          }
@@ -574,17 +574,17 @@ index f7b2fea5704e3b73edda214db4dd11b11142c1b3..8aa090005ada54a5e49642e2aa2a0c22
 -        private boolean hasPlacedSpawner;
 +        private volatile boolean hasPlacedSpawner; // Canvas - replace moonrise executor
  
-         public PortalRoom(int genDepth, BoundingBox genDepth, Direction boundingBox) {
-             super(StructurePieceType.STRONGHOLD_PORTAL_ROOM, genDepth, genDepth);
+         public PortalRoom(int genDepth, BoundingBox boundingBox, Direction direction) {
+             super(StructurePieceType.STRONGHOLD_PORTAL_ROOM, genDepth, boundingBox);
 @@ -1175,7 +1175,7 @@ public class StrongholdPieces {
          @Override
-         public void addChildren(StructurePiece piece, StructurePieceAccessor startPiece, RandomSource structurePieceAccessor) {
+         public void addChildren(StructurePiece startPiece, StructurePieceAccessor structurePieceAccessor, RandomSource random) {
              if (this.isSource) {
 -                StrongholdPieces.imposedPiece = StrongholdPieces.FiveCrossing.class;
 +                StrongholdPieces.imposedPiece.set(StrongholdPieces.FiveCrossing.class); // Canvas - replace moonrise executor
              }
  
-             this.generateSmallDoorChildForward((StrongholdPieces.StartPiece)piece, startPiece, structurePieceAccessor, 1, 1);
+             this.generateSmallDoorChildForward((StrongholdPieces.StartPiece)startPiece, structurePieceAccessor, random, 1, 1);
 @@ -1224,9 +1224,9 @@ public class StrongholdPieces {
      }
  
@@ -596,8 +596,8 @@ index f7b2fea5704e3b73edda214db4dd11b11142c1b3..8aa090005ada54a5e49642e2aa2a0c22
 +        public volatile StrongholdPieces.@Nullable PortalRoom portalRoomPiece; // Canvas - replace moonrise executor
 +        public final List<StructurePiece> pendingChildren = java.util.Collections.synchronizedList(Lists.newArrayList()); // Canvas - replace moonrise executor
  
-         public StartPiece(RandomSource random, int random, int west) {
-             super(StructurePieceType.STRONGHOLD_START, 0, random, west, getRandomHorizontalDirection(random));
+         public StartPiece(RandomSource random, int west, int north) {
+             super(StructurePieceType.STRONGHOLD_START, 0, west, north, getRandomHorizontalDirection(random));
 @@ -1377,7 +1377,7 @@ public class StrongholdPieces {
          }
      }
@@ -606,9 +606,9 @@ index f7b2fea5704e3b73edda214db4dd11b11142c1b3..8aa090005ada54a5e49642e2aa2a0c22
 +    public abstract static class StrongholdPiece extends StructurePiece { // Canvas - TODO - at
          protected StrongholdPieces.StrongholdPiece.SmallDoorType entryDoor = StrongholdPieces.StrongholdPiece.SmallDoorType.OPENING;
  
-         protected StrongholdPiece(StructurePieceType type, int type, BoundingBox genDepth) {
+         protected StrongholdPiece(StructurePieceType type, int genDepth, BoundingBox boundingBox) {
 diff --git a/net/minecraft/world/level/levelgen/structure/structures/SwampHutPiece.java b/net/minecraft/world/level/levelgen/structure/structures/SwampHutPiece.java
-index 756a20e8478777aacdfbd1de6d469ce3924c2ac4..b6508791094f1b7ee9e0ba2c96e368cd09b5248e 100644
+index b85594c90bf120c735a2509ec791d2a002ea8c7c..4282bc9e8639f3ddd770568814077da9d0295810 100644
 --- a/net/minecraft/world/level/levelgen/structure/structures/SwampHutPiece.java
 +++ b/net/minecraft/world/level/levelgen/structure/structures/SwampHutPiece.java
 @@ -23,8 +23,8 @@ import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSeriali
@@ -620,10 +620,10 @@ index 756a20e8478777aacdfbd1de6d469ce3924c2ac4..b6508791094f1b7ee9e0ba2c96e368cd
 +    private volatile boolean spawnedWitch; // Canvas - replace moonrise executor
 +    private volatile boolean spawnedCat; // Canvas - replace moonrise executor
  
-     public SwampHutPiece(RandomSource random, int random, int west) {
-         super(StructurePieceType.SWAMPLAND_HUT, random, 64, west, 7, 7, 9, getRandomHorizontalDirection(random));
+     public SwampHutPiece(RandomSource random, int west, int north) {
+         super(StructurePieceType.SWAMPLAND_HUT, west, 64, north, 7, 7, 9, getRandomHorizontalDirection(random));
 diff --git a/net/minecraft/world/level/levelgen/structure/structures/WoodlandMansionPieces.java b/net/minecraft/world/level/levelgen/structure/structures/WoodlandMansionPieces.java
-index 34a4c2c7155d902270f876151e43d9efa97a7261..cdb92575a38fe56bf99ec02078802a974a73d21a 100644
+index 9c2db408a37835f5aec0ea75867f671ea3f65a4b..db373c58541bb874f076e60c2531beb8fdfafa83 100644
 --- a/net/minecraft/world/level/levelgen/structure/structures/WoodlandMansionPieces.java
 +++ b/net/minecraft/world/level/levelgen/structure/structures/WoodlandMansionPieces.java
 @@ -127,7 +127,7 @@ public class WoodlandMansionPieces {
@@ -668,7 +668,7 @@ index 34a4c2c7155d902270f876151e43d9efa97a7261..cdb92575a38fe56bf99ec02078802a97
  
      static class SecondFloorRoomCollection extends WoodlandMansionPieces.FloorRoomCollection {
 diff --git a/net/minecraft/world/level/levelgen/structure/templatesystem/StructurePlaceSettings.java b/net/minecraft/world/level/levelgen/structure/templatesystem/StructurePlaceSettings.java
-index 3aff3a82d352af67d2879739f742825224d9923f..2c772b2ac7543c99872b03f2eee3ca1dd0a71440 100644
+index b39701ec29b108973abbc4074911b520ac929596..50da858b8f49975b2d2f7697a600db7d2751f2c0 100644
 --- a/net/minecraft/world/level/levelgen/structure/templatesystem/StructurePlaceSettings.java
 +++ b/net/minecraft/world/level/levelgen/structure/templatesystem/StructurePlaceSettings.java
 @@ -20,7 +20,7 @@ public class StructurePlaceSettings {
@@ -681,7 +681,7 @@ index 3aff3a82d352af67d2879739f742825224d9923f..2c772b2ac7543c99872b03f2eee3ca1d
      private boolean finalizeEntities;
  
 diff --git a/net/minecraft/world/level/levelgen/structure/templatesystem/StructureTemplate.java b/net/minecraft/world/level/levelgen/structure/templatesystem/StructureTemplate.java
-index da7a01e2082b335379d35095962ff2bc4b4094bf..d12016d878fc92095bc5e2189503f7f3adc0206d 100644
+index eb7ea57141351a0dde45997c5d7a7f996f46d3cf..54062fd35e1dc88a15ec9ba5b08d8763297acc9a 100644
 --- a/net/minecraft/world/level/levelgen/structure/templatesystem/StructureTemplate.java
 +++ b/net/minecraft/world/level/levelgen/structure/templatesystem/StructureTemplate.java
 @@ -76,8 +76,8 @@ public class StructureTemplate {

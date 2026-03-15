@@ -5,11 +5,11 @@ Subject: [PATCH] PR Party 1
 
 
 diff --git a/net/minecraft/server/level/ServerLevel.java b/net/minecraft/server/level/ServerLevel.java
-index 9f3fbd42eb78339c6e9901eedf5f37a39c44f89e..2f25b15675c1158511303323d99f9206c07ef41e 100644
+index 69f0f91d8b9f5c41d1b819edc8c8a41df7daadf6..6febb7d0ff18d25e4cec021daf3c02b5ca9e4b06 100644
 --- a/net/minecraft/server/level/ServerLevel.java
 +++ b/net/minecraft/server/level/ServerLevel.java
 @@ -2415,11 +2415,18 @@ public class ServerLevel extends Level implements ServerEntityGetter, WorldGenLe
-         Optional<Holder<PoiType>> optional1 = PoiTypes.forState(oldState);
+         Optional<Holder<PoiType>> optional1 = PoiTypes.forState(newState);
          if (!Objects.equals(optional, optional1)) {
              BlockPos blockPos = pos.immutable();
 -            optional.ifPresent(holder -> io.papermc.paper.threadedregions.RegionizedServer.getInstance().taskQueue.queueChunkTask(this, blockPos.getX() >> 4, blockPos.getZ() >> 4, () -> { // Folia - region threading

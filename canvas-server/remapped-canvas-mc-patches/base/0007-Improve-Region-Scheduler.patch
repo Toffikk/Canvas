@@ -547,7 +547,7 @@ index 8d4f092ec65d285508be81cbfadd6e747e1d067e..5d895bc64e471368c65f6eab4bdd430b
          return TextColor.color(HSVLike.hsvLike((float)(coordinate / 360.0), 85.0f / 100.0f, 80.0f / 100.0f));
      }
 diff --git a/net/minecraft/server/MinecraftServer.java b/net/minecraft/server/MinecraftServer.java
-index bae86e482d068c50ad6f824972a58d0bf70d9fbe..f5bdcaf8372bdd0698dc3a00600ddea0ae28bd32 100644
+index f6523e4e5e9f16a7af8a2589129b81a10f742e2f..97660eb7791cce655fd4fe85431804d1978ac8a0 100644
 --- a/net/minecraft/server/MinecraftServer.java
 +++ b/net/minecraft/server/MinecraftServer.java
 @@ -1650,7 +1650,7 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
@@ -569,7 +569,7 @@ index bae86e482d068c50ad6f824972a58d0bf70d9fbe..f5bdcaf8372bdd0698dc3a00600ddea0
      }
  
 diff --git a/net/minecraft/server/ServerTickRateManager.java b/net/minecraft/server/ServerTickRateManager.java
-index 6190d6ba8f8934b71e60fdb19a80bd4274c4e950..e43a7ce44921791e5aba8178edefa941b3529a0a 100644
+index 139899cc027ac25df065aab963664a152cbbb89d..be5ff8cff1178bc179d5f8a70a40af4ad4bcab80 100644
 --- a/net/minecraft/server/ServerTickRateManager.java
 +++ b/net/minecraft/server/ServerTickRateManager.java
 @@ -92,10 +92,7 @@ public class ServerTickRateManager extends TickRateManager {
@@ -585,7 +585,7 @@ index 6190d6ba8f8934b71e60fdb19a80bd4274c4e950..e43a7ce44921791e5aba8178edefa941
          this.setFrozen(this.previousIsFrozen);
          this.server.onTickRateChanged();
 diff --git a/net/minecraft/server/level/ServerLevel.java b/net/minecraft/server/level/ServerLevel.java
-index 24a49f44b57e1d06a6aafff4e0105cc1d658abd3..9f3fbd42eb78339c6e9901eedf5f37a39c44f89e 100644
+index feb463982220d162576e884965b64eb5a3f277b4..69f0f91d8b9f5c41d1b819edc8c8a41df7daadf6 100644
 --- a/net/minecraft/server/level/ServerLevel.java
 +++ b/net/minecraft/server/level/ServerLevel.java
 @@ -272,6 +272,57 @@ public class ServerLevel extends Level implements ServerEntityGetter, WorldGenLe
@@ -659,7 +659,7 @@ index ded991859a6a94693cce183b3bf380a9241a2976..33ee081848da6d245019ae594f5b117b
      private static TicketType register(String name, long timeout, @TicketType.Flags int flags) {
          return Registry.register(BuiltInRegistries.TICKET_TYPE, name, new TicketType(timeout, flags));
 diff --git a/net/minecraft/server/players/PlayerList.java b/net/minecraft/server/players/PlayerList.java
-index 5dc8b32e943d52ab90c4b461eb24ad5f3ebadb05..b090a3f6b2a4bbd76e3cb8a0695cd644f00ab1fc 100644
+index 92cd4c3c619b2ecd719a01edcf5b2b2347fbbcfa..ae0c2d0497169f094fd159d87b5b10af975b27da 100644
 --- a/net/minecraft/server/players/PlayerList.java
 +++ b/net/minecraft/server/players/PlayerList.java
 @@ -1047,7 +1047,7 @@ public abstract class PlayerList {

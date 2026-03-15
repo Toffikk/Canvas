@@ -5,7 +5,7 @@ Subject: [PATCH] PR Party 2
 
 
 diff --git a/net/minecraft/commands/Commands.java b/net/minecraft/commands/Commands.java
-index 68d968db451435c68bc2fb3f92521c453f010098..4f82a0dabff2b72a6ce3711d48091ea945d36583 100644
+index 4834dfbc3305a17b450982793d4b42b74d2d5527..222ace191e2ac330ce5aa500a4e223eb17d3065b 100644
 --- a/net/minecraft/commands/Commands.java
 +++ b/net/minecraft/commands/Commands.java
 @@ -202,7 +202,7 @@ public class Commands {

@@ -5,7 +5,7 @@ Subject: [PATCH] Remove Dead Old Watchdog Code
 
 
 diff --git a/net/minecraft/network/Connection.java b/net/minecraft/network/Connection.java
-index 7cdd8c1abb085a79eece3d7dbf0c4a924672006c..49a816ee909594bd3d6c555728fc031cc9085dd3 100644
+index c34eb5f5c0603cb62a9e58b592277b3e06dd6db6..3d30af425f87513f60a31f6c0d92934a43731191 100644
 --- a/net/minecraft/network/Connection.java
 +++ b/net/minecraft/network/Connection.java
 @@ -632,13 +632,7 @@ public class Connection extends SimpleChannelInboundHandler<Packet<?>> {
@@ -69,7 +69,7 @@ index 6923981fc317650f8a345faeea0756866ce31aba..3a3689cca7a277555add382843f399c9
      }
  }
 diff --git a/net/minecraft/world/entity/Entity.java b/net/minecraft/world/entity/Entity.java
-index dfb345562db50654244744403dafb30e4d4022ee..4e0505ebb2de4161d7f95c305d45908f2f0d1efb 100644
+index a8e2a57143614280b3e9bfd346433f1fedb7ff38..13454326a3711ff427b8fd853434860d2a304720 100644
 --- a/net/minecraft/world/entity/Entity.java
 +++ b/net/minecraft/world/entity/Entity.java
 @@ -1111,28 +1111,9 @@ public abstract class Entity implements SyncedDataHolder, DebugValueSource, Name
@@ -86,21 +86,21 @@ index dfb345562db50654244744403dafb30e4d4022ee..4e0505ebb2de4161d7f95c305d45908f
 -    private double moveStartZ;
 -    // Paper end - detailed watchdog information
 -
-     public void move(MoverType type, Vec3 moverType) {
-         final Vec3 originalMovement = moverType; // Paper - Expose pre-collision velocity
+     public void move(MoverType moverType, Vec3 delta) {
+         final Vec3 originalMovement = delta; // Paper - Expose pre-collision velocity
 -        // Paper start - detailed watchdog information
 -        ca.spottedleaf.moonrise.common.util.TickThread.ensureTickThread("Cannot move an entity off-main");
 -        synchronized (this.posLock) {
 -            this.moveStartX = this.getX();
 -            this.moveStartY = this.getY();
 -            this.moveStartZ = this.getZ();
--            this.moveVector = moverType;
+-            this.moveVector = delta;
 -        }
 -        try {
 -        // Paper end - detailed watchdog information
 +        ca.spottedleaf.moonrise.common.util.TickThread.ensureTickThread("Cannot move an entity off-main"); // Folia - region threading
          if (this.noPhysics) {
-             this.setPos(this.getX() + moverType.x, this.getY() + moverType.y, this.getZ() + moverType.z);
+             this.setPos(this.getX() + delta.x, this.getY() + delta.y, this.getZ() + delta.z);
              this.horizontalCollision = false;
 @@ -1253,13 +1234,6 @@ public abstract class Entity implements SyncedDataHolder, DebugValueSource, Name
                  this.setDeltaMovement(this.getDeltaMovement().multiply(blockSpeedFactor, 1.0, blockSpeedFactor));
@@ -115,7 +115,7 @@ index dfb345562db50654244744403dafb30e4d4022ee..4e0505ebb2de4161d7f95c305d45908f
 -        // Paper end - detailed watchdog information
      }
  
-     private void applyMovementEmissionAndPlaySound(Entity.MovementEmission movementEmission, Vec3 movement, BlockPos pos, BlockState state) {
+     private void applyMovementEmissionAndPlaySound(Entity.MovementEmission emission, Vec3 clippedMovement, BlockPos effectPos, BlockState effectState) {
 @@ -5732,9 +5706,7 @@ public abstract class Entity implements SyncedDataHolder, DebugValueSource, Name
  
      public void setDeltaMovement(Vec3 deltaMovement) {

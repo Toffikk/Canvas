@@ -5,23 +5,23 @@ Subject: [PATCH] PR Party 5
 
 
 diff --git a/net/minecraft/world/entity/TamableAnimal.java b/net/minecraft/world/entity/TamableAnimal.java
-index b30fa004f31eff82140cc8f420dd9c422924331f..78373b3c871925d1168889944d90f4c3bc4adfa8 100644
+index b61cf23ba3caba64b35f4ab875e7627aac7893a2..ebeee24dc47fa4a0db463762a63117b7267b789d 100644
 --- a/net/minecraft/world/entity/TamableAnimal.java
 +++ b/net/minecraft/world/entity/TamableAnimal.java
 @@ -270,6 +270,16 @@ public abstract class TamableAnimal extends Animal implements OwnableEntity {
      }
  
-     private boolean maybeTeleportTo(int x, int x, int y) {
+     private boolean maybeTeleportTo(int x, int y, int z) {
 +        // Folia start - region threading
 +        // the tamable entity can, when trying to see if it can teleport to the
 +        // block position, try and load chunks that may or may not be outside the
 +        // region boundaries. if it tries to load chunks outside the region,
 +        // the server crashes. so we do a quick check here first to ensure
 +        // that the chunk *is* loaded first, and if it is, then we attempt teleport
-+        if (this.level().getChunkIfLoaded(x >> 4, y >> 4) == null) {
++        if (this.level().getChunkIfLoaded(x >> 4, z >> 4) == null) {
 +            return false; // chunk not loaded, don't teleport
 +        }
 +        // Folia end - region threading
-         if (!this.canTeleportTo(new BlockPos(x, x, y))) {
+         if (!this.canTeleportTo(new BlockPos(x, y, z))) {
              return false;
          } else {
