@@ -1,12 +1,18 @@
 --- a/paper-api/build.gradle.kts
 +++ b/paper-api/build.gradle.kts
-@@ -5,7 +_,8 @@
+@@ -1,11 +_,14 @@
+ import io.papermc.paperweight.checkstyle.JavadocTag
++import io.papermc.paperweight.core.tasks.patchroulette.AbstractPatchRouletteTask
+ import paper.libs.com.google.gson.Gson
+ 
+ plugins {
      `java-library`
      `maven-publish`
      idea
 -    id("io.papermc.paperweight.paper-checkstyle")
 +    // id("io.papermc.paperweight.paper-checkstyle")
 +    id("io.canvasmc.weaver.dependency-bridge")
++    id("io.canvasmc.build-conventions")
  }
  
  java {
@@ -25,6 +31,20 @@
  
  val annotationsVersion = "26.0.2"
  val adventureVersion = "5.2.0"
+@@ -28,11 +_,11 @@
+ val slf4jVersion = "2.0.17"
+ val log4jVersion = "2.26.0"
+ 
+-val apiAndDocs: Configuration by configurations.creating
++val apiAndDocs = configurations.dependencyScope("apiAndDocs")
+ configurations.api {
+     extendsFrom(apiAndDocs)
+ }
+-val javadocSourcepath: Configuration by configurations.creating {
++val javadocSourcepath = configurations.register("javadocSourcepath") {
+     attributes {
+         attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.DOCUMENTATION))
+         attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.EXTERNAL))
 @@ -56,7 +_,7 @@
      // api dependencies are listed transitively to API consumers
      api("com.google.guava:guava:33.6.0-jre")
@@ -65,7 +85,7 @@
  }
  
 -val generatedDir: java.nio.file.Path = layout.projectDirectory.dir("src/generated/java").asFile.toPath()
-+val generatedDir: java.nio.file.Path = rootProject.layout.projectDirectory.dir("paper-api/src/generated/java").asFile.toPath()
++val generatedDir: java.nio.file.Path = isolated.rootProject.projectDirectory.dir("paper-api/src/generated/java").asFile.toPath()
  idea {
      module {
          generatedSourceDirs.add(generatedDir.toFile())
@@ -88,7 +108,14 @@
          }
      }
  }
-@@ -152,6 +_,32 @@
+@@ -146,12 +_,38 @@
+ }
+ 
+ configure<PublishingExtension> {
+-    publications.create<MavenPublication>("maven") {
++    publications.register<MavenPublication>("maven") {
+         // For Brigadier API
+         outgoingVariants.forEach {
              suppressPomMetadataWarningsFor(it)
          }
          from(components["java"])
@@ -121,12 +148,25 @@
      }
  }
  
-@@ -192,6 +_,10 @@
+@@ -180,7 +_,7 @@
+ val generateApiVersioningFile = tasks.register<GenerateApiVersioningFile>("generateApiVersioningFile") {
+     outputFile.set(layout.buildDirectory.file("apiVersioning.json"))
+     projectVersion.set(project.version.toString())
+-    apiVersion.set(rootProject.providers.gradleProperty("apiVersion"))
++    apiVersion.set(providers.gradleProperty("apiVersion"))
+ }
+ 
+ tasks.jar {
+@@ -192,6 +_,14 @@
      }
  }
  
 +tasks.withType<JavaCompile>().configureEach {
 +    options.compilerArgs.add("--add-modules=jdk.incubator.vector")
++}
++
++tasks.withType<AbstractPatchRouletteTask>().configureEach {
++    endpoint = providers.gradleProperty("patchRouletteEndpoint")
 +}
 +
  abstract class Services {
@@ -143,7 +183,18 @@
      options.use()
      options.isDocFilesSubDirs = true
      options.links(
-@@ -227,11 +_,11 @@
+@@ -218,20 +_,20 @@
+     options.tags(projectCustomJavadocTags.map { it.toOptionString() })
+ 
+     inputs.files(javadocSourcepath).ignoreEmptyDirectories().withPropertyName(javadocSourcepath.name + "-configuration")
+-    val javadocSourcepathElements = javadocSourcepath.elements
++    val javadocSourcepathElements = javadocSourcepath.map { it.elements }
+     doFirst {
+         options.addStringOption(
+             "sourcepath",
+-            javadocSourcepathElements.get().map { it.asFile }.joinToString(separator = File.pathSeparator, transform = File::getPath)
++            javadocSourcepathElements.get().get().map { it.asFile }.joinToString(separator = File.pathSeparator, transform = File::getPath)
+         )
      }
  
      // workaround for https://github.com/gradle/gradle/issues/4046
@@ -157,3 +208,12 @@
                  include("**/doc-files/**")
              }
              into("build/docs/javadoc")
+@@ -253,7 +_,7 @@
+     options.compilerArgs.add("-parameters")
+ }
+ 
+-val scanJarForBadCalls by tasks.registering(io.papermc.paperweight.tasks.ScanJarForBadCalls::class) {
++val scanJarForBadCalls = tasks.register<io.papermc.paperweight.tasks.ScanJarForBadCalls>("scanJarForBadCalls") {
+     badAnnotations.add("Lio/papermc/paper/annotation/DoNotUse;")
+     jarToScan.set(tasks.jar.flatMap { it.archiveFile })
+     classpath.from(configurations.compileClasspath)

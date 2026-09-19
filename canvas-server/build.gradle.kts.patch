@@ -1,7 +1,9 @@
 --- a/paper-server/build.gradle.kts
 +++ b/paper-server/build.gradle.kts
-@@ -2,12 +_,13 @@
+@@ -1,14 +_,17 @@
+ import io.papermc.fill.model.BuildChannel
  import io.papermc.paperweight.attribute.DevBundleOutput
++import io.papermc.paperweight.core.tasks.patchroulette.AbstractPatchRouletteTask
  import io.papermc.paperweight.util.*
  import java.time.Instant
 +import io.papermc.paperweight.tasks.MergeAccessTransforms
@@ -13,13 +15,15 @@
 -    id("io.papermc.paperweight.core")
 +    id("io.canvasmc.weaver.core")
      id("io.papermc.fill.gradle") version "1.0.12"
++    id("io.canvasmc.build-conventions")
  }
  
-@@ -18,12 +_,31 @@
+ val paperMavenPublicUrl = "https://repo.papermc.io/repository/maven-public/"
+@@ -18,13 +_,36 @@
      paperclip("io.papermc:paperclip:3.0.4")
  }
  
-+val mergeMinecraftATs by tasks.registering<MergeAccessTransforms> {
++val mergeMinecraftATs = tasks.register<MergeAccessTransforms>("mergeMinecraftATs") {
 +    firstFile.set(paperweight.activeFork.flatMap { it.buildDataDir.file("${it.name}.at") })
 +    secondFile.set(paperweight.activeFork.flatMap { it.buildDataDir.file("folia.at") })
 +}
@@ -45,9 +49,32 @@
          // oldPaperCommit = "d4fe85375af18bfa88f44d7c1e6a61904ae550cc"
 +        oldForkCommit = "ddc374bb25e0f1e3cb6836aff89b538cbc10a919"
      }
++}
++
++tasks.withType<AbstractPatchRouletteTask>().configureEach {
++    endpoint = providers.gradleProperty("patchRouletteEndpoint")
  }
  
-@@ -86,7 +_,19 @@
+ tasks.generateDevelopmentBundle {
+@@ -53,7 +_,7 @@
+     val runtime = configurations.consumable("serverRuntimeClasspath") {
+         attributes.attribute(DevBundleOutput.ATTRIBUTE, objects.named(DevBundleOutput.SERVER_DEPENDENCIES))
+         attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+-        extendsFrom(configurations.runtimeClasspath.get())
++        extendsFrom(configurations.runtimeClasspath)
+     }
+     devBundleComponent.addVariantsFromConfiguration(runtime) {
+         mapToMavenScope("runtime")
+@@ -62,7 +_,7 @@
+     val compile = configurations.consumable("serverCompileClasspath") {
+         attributes.attribute(DevBundleOutput.ATTRIBUTE, objects.named(DevBundleOutput.SERVER_DEPENDENCIES))
+         attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_API))
+-        extendsFrom(configurations.compileClasspath.get())
++        extendsFrom(configurations.compileClasspath)
+     }
+     devBundleComponent.addVariantsFromConfiguration(compile) {
+         mapToMavenScope("compile")
+@@ -86,15 +_,28 @@
      }
  }
  
@@ -66,8 +93,21 @@
 +    java { srcDir("../paper-server/src/log4jPlugins/java") }
 +}
  configurations.named(log4jPlugins.compileClasspathConfigurationName) {
-     extendsFrom(configurations.compileClasspath.get())
+-    extendsFrom(configurations.compileClasspath.get())
++    extendsFrom(configurations.compileClasspath)
  }
+-val alsoShade: Configuration by configurations.creating
++val alsoShade = configurations.dependencyScope("alsoShade")
++val alsoShadeResolvable = configurations.dependencyScope("alsoShadeResolvable")
+ 
+-val runtimeConfiguration by configurations.consumable("runtimeConfiguration") {
++val runtimeConfiguration = configurations.consumable("runtimeConfiguration") {
+     attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+-    extendsFrom(configurations.getByName(sourceSets.main.get().runtimeElementsConfigurationName))
++    extendsFrom(configurations.named(sourceSets.main.get().runtimeElementsConfigurationName))
+ }
+ 
+ // Configure mockito agent that is needed in newer java versions
 @@ -109,12 +_,14 @@
  }
  
@@ -107,7 +147,17 @@
      testImplementation("org.mockito:mockito-core:5.22.0")
      mockitoAgent("org.mockito:mockito-core:5.22.0") { isTransitive = false } // Configure mockito agent that is needed in newer java versions
      testImplementation("org.ow2.asm:asm-tree:9.9.1")
-@@ -169,20 +_,30 @@
+@@ -161,28 +_,38 @@
+ 
+ tasks.jar {
+     manifest {
+-        val git = Git(rootProject.layout.projectDirectory.path)
+-        val mcVersion = rootProject.providers.gradleProperty("mcVersion").get()
++        val git = Git(isolated.rootProject.projectDirectory.path)
++        val mcVersion = providers.gradleProperty("mcVersion").get()
+         val build = System.getenv("BUILD_NUMBER") ?: null
+         val buildTime = providers.environmentVariable("BUILD_STARTED_AT").map(Instant::parse).orElse(Instant.EPOCH).get()
+         val gitHash = git.exec(providers, "rev-parse", "--short=7", "HEAD").get().trim()
          val implementationVersion = "$mcVersion-${build ?: "DEV"}-$gitHash"
          val date = git.exec(providers, "show", "-s", "--format=%ci", gitHash).get().trim()
          val gitBranch = git.exec(providers, "rev-parse", "--abbrev-ref", "HEAD").get().trim()
@@ -143,6 +193,33 @@
          )
          for (tld in setOf("net", "com", "org")) {
              attributes("$tld/bukkit", "Sealed" to true)
+@@ -209,7 +_,7 @@
+     options.forkOptions.memoryMaximumSize = "1G"
+ }
+ 
+-val scanJarForBadCalls by tasks.registering(io.papermc.paperweight.tasks.ScanJarForBadCalls::class) {
++val scanJarForBadCalls = tasks.register<io.papermc.paperweight.tasks.ScanJarForBadCalls>("scanJarForBadCalls") {
+     badAnnotations.add("Lio/papermc/paper/annotation/DoNotUse;")
+     jarToScan.set(tasks.jar.flatMap { it.archiveFile })
+     classpath.from(configurations.compileClasspath)
+@@ -221,7 +_,7 @@
+ // Use TCA for console improvements
+ tasks.jar {
+     val archiveOperations = services.archiveOperations
+-    from(alsoShade.elements.map {
++    from(alsoShadeResolvable.flatMap { it.elements.map {
+         it.map { f ->
+             if (f.asFile.isFile) {
+                 archiveOperations.zipTree(f.asFile)
+@@ -229,7 +_,7 @@
+                 f.asFile
+             }
+         }
+-    })
++    }})
+ }
+ 
+ tasks.test {
 @@ -240,6 +_,10 @@
          excludeTags("Slow")
      }
@@ -154,7 +231,16 @@
      // Configure mockito agent that is needed in newer java versions
      val provider = objects.newInstance<MockitoAgentProvider>()
      provider.fileCollection.from(mockitoAgent)
-@@ -275,15 +_,16 @@
+@@ -267,7 +_,7 @@
+     group = "runs"
+     mainClass.set("org.bukkit.craftbukkit.Main")
+     standardInput = System.`in`
+-    workingDir = rootProject.layout.projectDirectory
++    workingDir = isolated.rootProject.projectDirectory
+         .dir(providers.gradleProperty("paper.runWorkDir").getOrElse("run"))
+         .asFile
+     javaLauncher.set(project.javaToolchains.launcherFor {
+@@ -275,15 +_,18 @@
          // TODO - JB runtime 25 has issues with spark rn
          // vendor.set(JvmVendorSpec.JETBRAINS)
      })
@@ -165,6 +251,7 @@
 -        val testPluginJar = rootProject.project(":test-plugin").tasks.jar.flatMap { it.archiveFile }
 -        inputs.file(testPluginJar)
 -        args("-add-plugin=${testPluginJar.get().asFile.absolutePath}")
++    /* TODO: This breaks every fundamental restriction of IP
 +    for (entry in rootProject.childProjects) {
 +        if (entry.key == "test-plugin" || entry.key.endsWith("-debug", true) || entry.key.endsWith("-plugin", true)) {
 +            val testPluginJar = rootProject.project(":${entry.key}").tasks.jar.flatMap { it.archiveFile }
@@ -172,6 +259,7 @@
 +            args("-add-plugin=${testPluginJar.get().asFile.absolutePath}")
 +        }
      }
++    */
  
 -    args("--nogui")
      systemProperty("net.kyori.adventure.text.warnWhenLegacyFormattingDetected", true)

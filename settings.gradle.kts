@@ -9,6 +9,7 @@ pluginManagement {
             url = uri("https://maven.canvasmc.io/public")
         }
     }
+    // includeBuild("build-logic") - NestedBuildRunner fails with included builds...
 }
 
 plugins {
